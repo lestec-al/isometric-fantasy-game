@@ -1,1 +1,0 @@
-Player(id=200, health=50, speed=2, items=items, body="body_skeleton.png", weapon=301, torso=304, hands=308, legs=305, belt=306, feet=307, sword_skill=2)
