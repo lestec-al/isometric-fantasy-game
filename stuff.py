@@ -9,11 +9,13 @@ class Object():
         self.obj_type = obj_type
         self.image = None
 
-class Storage(Object):
-    def __init__(self, id, map, obj_type, image):
+class Box(Object):
+    def __init__(self, id, map, obj_type, image, image_open):
         super().__init__(id, map, obj_type)
         self.image = image
-        self.inventory_map = []
+        self.image_open = image_open
+        self.inventory = []
+        self.capacity = 30
 
 class Item():
     def __init__(self, id, name, obj_type, image):

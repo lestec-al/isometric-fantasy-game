@@ -7,10 +7,12 @@ scale = 32
 red = (255,0,0)
 orange = (255,165,0)
 grey = (100,100,100)
-green = (114,140,0)
 white = (255,255,255)
 brown = (222,184,135)
 
+player_dict = {
+    "id":1, "health":100, "speed":2, "body":'body_male.png', "head":"head_hair_blonde.png", "weapon":300, "torso":320, "hands":324,
+                "legs":321, "belt":322, "feet":323, "behind":None, "sword_skill":1, "spear_skill":1}
 npcs_dict = {
     "person1":{"id":200, "health":25, "speed":1, "body":'body_skeleton.png', "head":None, "weapon":301, "torso":None, "hands":None,
                 "legs":None, "belt":None, "feet":None, "behind":None, "sword_skill":1, "spear_skill":1},
@@ -21,22 +23,30 @@ items_dict = {
     "weapon3":{"id":302, "name":"Staff", "obj_type":"weapon", "image":"graphics/staff.png", "anim":"weapon_staff.png", "damage":10, "cooldown_time":4},
     "weapon4":{"id":303, "name":"Spear", "obj_type":"weapon", "image":"graphics/spear.png", "anim":"weapon_spear.png", "damage":20, "cooldown_time":4},
     "outfit1":{"id":320, "name":"Brown shirt", "obj_type":"torso", "image":None, "anim":"torso_robe_shirt_brown.png", "armor":0.5},
-    "outfit2":{"id":321, "name":"Brown skirt", "obj_type":"legs", "image":None, "anim":"legs_robe_skirt.png", "armor":0.2},
+    "outfit2":{"id":321, "name":"Brown legs", "obj_type":"legs", "image":None, "anim":"legs_robe_skirt.png", "armor":0.2},
     "outfit3":{"id":322, "name":"Robe belt", "obj_type":"belt", "image":None, "anim":"belt_rope.png", "armor":0.2},
     "outfit4":{"id":323, "name":"Brown shoes", "obj_type":"feet", "image":None, "anim":"feet_shoes_brown.png", "armor":0.2},
     "outfit5":{"id":324, "name":"Armor gloves", "obj_type":"hands", "image":None, "anim":"hands_plate_armor_gloves.png", "armor":0.2},
     "outfit6":{"id":325, "name":"Chain armor", "obj_type":"torso", "image":None, "anim":"torso_chain_armor_torso.png", "armor":1.0},
-    "potion1":{"id":360, "name":"Health potion 50", "obj_type":"health_potion", "image":"graphics/potion_h.png", "for_adding":50},
-    "potion2":{"id":361, "name":"Energy potion 50", "obj_type":"energy_potion", "image":"graphics/potion_e.png", "for_adding":50},
+    "potion1":{"id":360, "name":"Health potion", "obj_type":"health_potion", "image":"graphics/potion_h.png", "for_adding":50},
+    "potion2":{"id":361, "name":"Energy potion", "obj_type":"energy_potion", "image":"graphics/potion_e.png", "for_adding":50},
 }
-chests_dict = {
-    "storage1":{"id":500, "obj_type":"storage", "image":"graphics/chest.png"},
+boxes_dict = {
+    "box1":{"id":500, "containce":[361], "obj_type":"box", "image":"graphics/box_closed.png", "image_open":"graphics/box_opened.png"},
 }
+
+class Sounds():
+    def __init__(self):
+        self.sounds = []
+        self.add_sounds()
+
+    def add_sounds(self):
+        for file in os.listdir("sounds/"):
+            self.sounds.append(pygame.mixer.Sound(f"sounds/{file}"))
 
 class Images():
     def __init__(self):
         self.terrain_images = []
-        self.label_armor_images = {}# ???
         self.player_images = {
             "bow":{"body":{}, "head":{}, "behind":{}, "belt":{}, "feet":{}, "hands":{}, "legs":{}, "torso":{}, "weapon":{}},
             "hurt":{"body":{}, "head":{}, "behind":{}, "belt":{}, "feet":{}, "hands":{}, "legs":{}, "torso":{}, "weapon":{}},
@@ -45,11 +55,10 @@ class Images():
             "thrust":{"body":{}, "head":{}, "behind":{}, "belt":{}, "feet":{}, "hands":{}, "legs":{}, "torso":{}, "weapon":{}},
             "walkcycle":{"body":{}, "head":{}, "behind":{}, "belt":{}, "feet":{}, "hands":{}, "legs":{}, "torso":{}, "weapon":{}}}
         self.add_player_images()
-        self.add_label_armor_images()# ???
-        self.add_terrain_images()
+        self.add_images(self.terrain_images, "graphics/map/wood_tileset.png")
 
-    def add_terrain_images(self):
-        i = Image.open(f"graphics/map/wood_tileset.png")
+    def add_images(self, result:list, path:str):
+        i = Image.open(path)
         width, height = i.width, i.height
         w, h = int(width/32), int(height/32)
         left, upper, right, lower = 0, 0, 32, 32
@@ -59,7 +68,7 @@ class Images():
             for _ in range(w):
                 image = i.crop((left+c_i, upper+r_i, right+c_i, lower+r_i))
                 img = self.pil_img_to_surface(image)
-                self.terrain_images.append(img)
+                result.append(img)
                 c_i += 32
             r_i += 32
 
@@ -86,25 +95,8 @@ class Images():
                         c_i += 64
                     r_i += 64
 
-    def add_label_armor_images(self):# ???
-        i = Image.open(f"graphics/armor.png")
-        width, height = i.width, i.height
-        w, h = int(width/64), int(height/64)
-        left, upper, right, lower = 0, 0, 64, 64
-        r_i = 0
-        for i_h in range(h):
-            c_i = 0
-            for _ in range(w):
-                image = i.crop((left+c_i, upper+r_i, right+c_i, lower+r_i))
-                image = image.resize((32,32))
-                img = self.pil_img_to_surface(image)
-                try:
-                    self.label_armor_images[f"{i_h}"].append(img)
-                except KeyError:
-                    self.label_armor_images[f"{i_h}"] = []
-                    self.label_armor_images[f"{i_h}"].append(img)
-                c_i += 64
-            r_i += 64
-
     def pil_img_to_surface(self, pil_img):
         return pygame.image.fromstring(pil_img.tobytes(), pil_img.size, pil_img.mode).convert_alpha()
+
+    def load(self, image_path):
+        return pygame.image.load(image_path).convert_alpha()

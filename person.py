@@ -24,6 +24,11 @@ class Person():
         self.attacking = False
         self.attack_time = None
         self.attack_stop = False
+        self.under_attack_time = None
+        # Sounds ???
+        self.sound_status = {"attack":False, "under_attack":False, "drink_potion":False, "inventory_items":False,
+        "nature":None, "ocean":None}
+        self.sound_stage = 0
         # Map
         self.map = None
         self.screen = None
@@ -32,18 +37,25 @@ class Person():
         self.move_status = "left"
         self.anim_stage = 0
         self.idle_stage = 0
-        self.label_armor_images = images.label_armor_images
         self.images = images.player_images
         self.images_methods = images
         self.movement = None
         # Inventory
         self.items = items
         self.inventory_open = False
-        self.inventory_map = []
+        self.inventory = []
+        self.capacity = 20
+        self.box = None
+        self.showing_item = None
+        self.show_pos = None
+        
+        self.show_item = False
+
         self.selected = {"head":head if type(head) == type(1) else None,
             "behind":behind, "belt":belt, "feet":feet, "hands":hands, "legs":legs, "torso":torso, "weapon":weapon}
         self.wear = {"body":body, "head":head if type(head) == type("") else None,
             "behind":None, "belt":None, "feet":None, "hands":None, "legs":None, "torso":None, "weapon":None}
+        self.hair = head if type(head) == type("") else None
         self.add_items()
 
     # Next methods for Player and NPCs
@@ -52,7 +64,7 @@ class Person():
         for i in self.items:
             for k in self.selected:
                 if self.selected[k] != None and self.selected[k] == i.id:
-                    self.inventory_map.append(i)
+                    self.inventory.append(i)
                     self.selected[k] = i
                     self.wear[k] = i.anim
         self.count_armor()
@@ -81,8 +93,8 @@ class Person():
             elif direction == "1":
                 ready_anim_list = anim_list
             return ready_anim_list
-        def blit(direction, anim):# ???
-            # Merge images into one (1- body, 2- all, 3- belt, behind, weapon) and blit on screen
+        def blit(direction, anim):
+            # Merge images into one (1-body, 2-all, 3-belt, behind, weapon) and blit on screen
             image_body = choose_animations(direction, self.images[anim]["body"][self.wear["body"]])[int(self.anim_stage)]
             if self.wear["belt"] != None:
                 image_belt = choose_animations(direction, self.images[anim]["belt"][self.wear["belt"]])[int(self.anim_stage)]
@@ -117,7 +129,7 @@ class Person():
                 image = Image.alpha_composite(image, image_weapon)
             img = self.images_methods.pil_img_to_surface(image)
             self.screen = img.get_rect()
-            self.screen.center = (self.map.centerx-player.camera_x, self.map.centery-6-player.camera_y)# ???
+            self.screen.center = (self.map.centerx-player.camera_x, self.map.centery-20-player.camera_y)# ???
             self.window.blit(img, self.screen)
         def draw(direction , anim):
             try:# Periodically play idle(spellcast) animation
@@ -140,13 +152,21 @@ class Person():
                 blit(direction, anim)
         # Person
         if self.health <= 0:
+            self.under_attack_time = None
             try:
                 self.anim_stage += 0.1
                 blit("1", "hurt")
             except:
                 self.anim_stage = 5
                 blit("1", "hurt")
-            return None
+        elif self.under_attack_time != None:
+            if "go" in self.move_status:
+                self.move_status = self.move_status[:-3]
+            self.anim_stage = 2
+            if self.move_status == "up":blit("u", "spellcast")
+            elif self.move_status == "down":blit("d", "spellcast")
+            elif self.move_status == "left":blit("l", "spellcast")
+            elif self.move_status == "right":blit("r", "spellcast")
         elif self.attacking and self.attack_stop == False:
             if "sword" in self.selected["weapon"].anim:
                 if self.move_status == "up":draw("u", "slash")
@@ -168,14 +188,49 @@ class Person():
             elif self.move_status == "down-go":draw("d", "walkcycle")
             elif self.move_status == "left-go":draw("l", "walkcycle")
             elif self.move_status == "right-go":draw("r", "walkcycle")
-        # Cooldown
-        try: cooldown_time = self.selected["weapon"].cooldown_time
-        except: cooldown_time = 2
-        if self.attack_time != None and time.time() - self.attack_time >= cooldown_time:
-            self.attacking = False
-            self.attack_stop = False
+        
+    def add_sounds(self, sounds):# ??????
+        if self.under_attack_time != None and self.sound_status["under_attack"] == False:
+            sounds.sounds[4].play()
+            self.sound_status["under_attack"] = True
+        elif self.attacking and self.attack_stop == False and self.sound_status["attack"] == False:
+            sounds.sounds[0].play()
+            self.sound_status["attack"] = True
+        else:# ??????
+            if "go" in self.move_status:
+                if self.sound_stage < 2:
+                    self.sound_stage = 2
+                elif self.sound_stage > 3:
+                    self.sound_stage = 2
+                if self.sound_stage == 2:# or self.sound_stage == 3:
+                    s = sounds.sounds[self.sound_stage]
+                    pygame.mixer.Sound.set_volume(s, 0.1)
+                    s.play()
+                self.sound_stage += 0.04
+        if self.sound_status["drink_potion"] == True:
+            pygame.mixer.Sound.set_volume(sounds.sounds[1], 0.8)
+            sounds.sounds[1].play()
+            self.sound_status["drink_potion"] = False
+        if self.inventory_open and self.sound_status["inventory_items"] == True:
+            pygame.mixer.Sound.set_volume(sounds.sounds[5], 0.8)
+            sounds.sounds[5].play()
+            self.sound_status["inventory_items"] = False
+        if self.sound_status["nature"] == None:
+            pygame.mixer.Sound.set_volume(sounds.sounds[7], 0.8)
+            sounds.sounds[7].play()
+            self.sound_status["nature"] = time.time()
+        else:
+            if time.time() - self.sound_status["nature"] >= sounds.sounds[7].get_length():
+                self.sound_status["nature"] = None
+        if self.sound_status["ocean"] == None:
+            pygame.mixer.Sound.set_volume(sounds.sounds[6], 0.1)
+            sounds.sounds[6].play()
+            self.sound_status["ocean"] = time.time()
+        else:
+            if time.time() - self.sound_status["ocean"] >= sounds.sounds[6].get_length():
+                self.sound_status["ocean"] = None
 
-    def health_energy_restoration(self):# ???
+    def stats_restoration(self):# ???
         if self.health < self.health_bar_width and self.health > 0:
             if "go" in self.move_status:
                 self.health += 0.001
@@ -186,20 +241,31 @@ class Person():
                 self.energy += 0.01
             else:
                 self.energy += 0.02
+        try:
+            cooldown_time = self.selected["weapon"].cooldown_time
+        except:
+            cooldown_time = 2
+        if self.attack_time != None and time.time() - self.attack_time >= cooldown_time:
+            self.attacking = False
+            self.attack_stop = False
+            self.sound_status["attack"] = False
+        cooldown_under_attack_time = 0.5
+        if self.under_attack_time != None and time.time() - self.under_attack_time >= cooldown_under_attack_time:
+            self.under_attack_time = None
+            self.sound_status["under_attack"] = False
 
-    def attack(self, attacker, opponent):
+    def attack(self, attacker, opponent):# ???
         def attack_1():
             skill = attacker.selected["weapon"].anim[7:-4]
-            if skill == "staff": skill = "spear"
+            if skill == "staff":
+                skill = "spear"
             r_int = random.randint(int(attacker.skills[skill]), attacker.selected["weapon"].damage)
             if attacker.skills[skill] >= attacker.selected["weapon"].damage and attacker.selected["weapon"].damage - opponent.armor >= 0:
                 opponent.health -= attacker.selected["weapon"].damage - opponent.armor
-                attacker.skills[skill] += 0.01
             elif attacker.skills[skill] < attacker.selected["weapon"].damage and r_int - opponent.armor >= 0:
                 opponent.health -= r_int - opponent.armor
-                attacker.skills[skill] += 0.01
-            else:
-                opponent.health -= 0
+            attacker.skills[skill] += 0.01
+            opponent.under_attack_time = time.time()
         if attacker.map.top == opponent.map.bottom and attacker.map.left >= opponent.map.left-scale and attacker.map.right <= opponent.map.right+scale:
             attacker.move_status = "up"
             attack_1()
@@ -242,34 +308,67 @@ class Person():
 
     # Next methods only for Player
 
-    def append_items(self):
+    def append_items_from_map(self):
         for i in self.items:
             if i.map.x != 0:
                 if i.map.colliderect(self.map):
-                    if len(self.inventory_map) <= 25 and i not in self.inventory_map:
-                        self.inventory_map.append(i)
+                    if len(self.inventory) <= self.capacity and i not in self.inventory:
+                        self.inventory.append(i)
                         i.map.x, i.map.y = 0, 0
 
     def draw_player_stats(self):
+        # Health, energy, cooldown indicator
         pygame.draw.rect(self.window, red, (10, 10, self.health_bar_width, 17), 1)
         pygame.draw.rect(self.window, red, (10, 10, self.health, 17))
         pygame.draw.rect(self.window, orange, (10, 30, self.energy_bar_width, 17), 1)
         pygame.draw.rect(self.window, orange, (10, 30, self.energy, 17))
+        if self.attacking:
+            self.window.blit(self.stat_font.render("!!!", True, white), (10, 50, 20, 20))
+        # Inventory
         if self.inventory_open:
+            # Draw inventory info
+            inventory_text = self.stat_font.render(f"Player Items", True, white)
+            self.window.blit(inventory_text, (screen_width//2, 32, 50, 17))
+            # Boxes
+            if self.box != None:
+                text = "NPC Items" if self.box.obj_type == "npc" else "Box Items"
+                self.window.blit(self.stat_font.render(text, True, white), (screen_width//5, 32, 50, 17))
+            # Info about single item
+            if self.showing_item != None and self.show_pos != None:
+                show_pos1 = (self.show_pos[0]-100, self.show_pos[1]+10)
+                show_pos2 = (self.show_pos[0]-100, self.show_pos[1]+30)
+                self.window.blit(self.stat_font.render(self.showing_item.name, True, white), (show_pos1, (50, 17)))
+                if "weapon" in self.showing_item.obj_type:
+                    self.window.blit(self.stat_font.render(str(self.showing_item.damage), True, white), (show_pos2, (50, 17)))
+                elif "potion" in self.showing_item.obj_type:
+                    self.window.blit(self.stat_font.render(str(self.showing_item.for_adding), True, white), (show_pos2, (50, 17)))
+                else:
+                    self.window.blit(self.stat_font.render(str(self.showing_item.armor), True, white), (show_pos2, (50, 17)))
+            # Damage, armor, skills
             if self.selected["weapon"] != None:
                 weapon_damage = self.selected["weapon"].damage
-                weapon_text = self.stat_font.render(f"Weapon damage: {str(weapon_damage)}", True, white)
-                self.window.blit(weapon_text, (screen_width-180, screen_height//2, 50, 17))
-            armor_text = self.stat_font.render(f"Armor protection: {str(self.armor)}", True, white)
-            self.window.blit(armor_text, (screen_width-180, screen_height//2+20, 50, 17))
-            armor_text = self.stat_font.render(f"Sword skill: {str(int(self.skills['sword']))}", True, white)
-            self.window.blit(armor_text, (screen_width-180, screen_height//2+40, 50, 17))
-            armor_text = self.stat_font.render(f"Spear skill: {str(int(self.skills['spear']))}", True, white)
-            self.window.blit(armor_text, (screen_width-180, screen_height//2+60, 50, 17))         
+                weapon_text = self.stat_font.render(f"Damage: {str(weapon_damage)}", True, white)
+                self.window.blit(weapon_text, (screen_width-120, screen_height//2, 50, 17))
+            armor_text = self.stat_font.render(f"Armor: {str(self.armor)}", True, white)
+            self.window.blit(armor_text, (screen_width-120, screen_height//2+20, 50, 17))
+            self.window.blit(self.stat_font.render("Skills:", True, white), (screen_width-120, screen_height//2+40, 50, 17))
+            sword_text = self.stat_font.render(f"Sword: {str(int(self.skills['sword']))}", True, white)
+            self.window.blit(sword_text, (screen_width-120, screen_height//2+60, 50, 17))
+            spear_text = self.stat_font.render(f"Spear: {str(int(self.skills['spear']))}", True, white)
+            self.window.blit(spear_text, (screen_width-120, screen_height//2+80, 50, 17))
+        # Others
+        elif not self.inventory_open:
+            if self.box != None:
+                self.box = None
+        if self.show_item == False:
+            if self.showing_item != None:
+                self.showing_item = None
+            if self.show_pos != None:
+                self.show_pos = None
 
     def keyboard(self, sprites):
         pressed = pygame.key.get_pressed()
-        if self.attacking == False:
+        if self.attacking == False and self.under_attack_time == None:
             if pressed[pygame.K_w] and not self.inventory_open:
                 self.move("up", sprites)
             elif pressed[pygame.K_s] and not self.inventory_open:
@@ -282,23 +381,21 @@ class Person():
                 if "go" in self.move_status:
                     self.move_status = self.move_status[:-3]
             if pressed[pygame.K_i]:
-                time.sleep(0.2)
+                time.sleep(0.5)
                 if self.inventory_open == False:
                     self.inventory_open = True
                 elif self.inventory_open == True:
                     self.inventory_open = False
-        # Attack
-        if (pressed[pygame.K_f] and self.selected["weapon"] != None and
-            self.attacking == False and"go" not in self.move_status and self.energy > 1 and not self.inventory_open):
+        if (pressed[pygame.K_f] and self.selected["weapon"] != None and self.under_attack_time == None and
+            self.attacking == False and "go" not in self.move_status and self.energy > 1 and not self.inventory_open):
             for s in sprites:
-                if s.obj_type == "npc":
-                    if s.health > 0:
-                        self.attack(self, s)
+                if s.obj_type == "npc" and s.health > 0:
+                    self.attack(self, s)
             self.energy -= self.selected["weapon"].cooldown_time*5
             self.attacking = True
             self.attack_time = time.time()
 
-    def draw_inventory(self, sprites):
+    def draw_inventory(self, sprites):# ???
         def draw_item_ui(item, pos):
             if item.image == None and "Outfit" in str(item):# ???
                 item.image = self.images_methods.pil_img_to_surface(self.images["walkcycle"][item.obj_type][item.anim][18])
@@ -313,25 +410,23 @@ class Person():
                 if s.map.collidepoint(self.map.x-scale, self.map.y-scale):
                     return False
             return True
-        # Storages or looting
-        storage = None
+        self.show_item = False
+        # Boxes
+        self.box = None
         for s in sprites:
-            if s.obj_type == "npc" and s.health <= 0 or s.obj_type == "storage":
+            if s.obj_type == "npc" and s.health <= 0 or s.obj_type == "box":
                 if self.map.top == s.map.bottom and self.map.left >= s.map.left-scale and self.map.right <= s.map.right+scale:
-                    storage = s.inventory_map
+                    self.box = s
                 elif self.map.bottom == s.map.top and self.map.left >= s.map.left-scale and self.map.right <= s.map.right+scale:
-                    storage = s.inventory_map
+                    self.box = s
                 elif self.map.left == s.map.right and self.map.top >= s.map.top-scale and self.map.bottom <= s.map.bottom+scale:
-                    storage = s.inventory_map
+                    self.box = s
                 elif self.map.right == s.map.left and self.map.top >= s.map.top-scale and self.map.bottom <= s.map.bottom+scale:
-                    storage = s.inventory_map          
-        if storage != None:
-            # Draw storage info
-            storage_text = self.stat_font.render(f"Storage Items", True, white)
-            self.window.blit(storage_text, (screen_width//5, 32, 50, 17))
-            # Draw storage
+                    self.box = s
+        # Draw box
+        if self.box != None:
             y_index, x_index, item_index = 1, 0, 0
-            for i in storage:
+            for i in self.box.inventory:
                 if item_index >= 5:
                     y_index += 1
                     item_index = 0
@@ -344,55 +439,65 @@ class Person():
                 draw_item_ui(i, item_pos)
                 x_index += 1
                 item_index += 1
-                # Append items to inventory
-                if pygame.mouse.get_pressed()[0]:
-                    time.sleep(0.1)
-                    if item_pos.collidepoint(pygame.mouse.get_pos()):
-                        self.inventory_map.append(i)
-                        storage.remove(i)
+                if item_pos.collidepoint(pygame.mouse.get_pos()):
+                    self.show_item = True
+                    # Show item info
+                    self.show_pos = pygame.mouse.get_pos()
+                    self.showing_item = i
+                    # Append items to player inventory from box
+                    if pygame.mouse.get_pressed()[0]:
+                        self.sound_status["inventory_items"] = True
+                        time.sleep(0.5)
+                        if len(self.inventory) <= self.capacity and i not in self.inventory:
+                            self.inventory.append(i)
+                            self.box.inventory.remove(i)
         # Inventory
         y_index, x_index, item_index = 1, 0, 0
-        for i in self.inventory_map:
-            # Draw inventory info
-            storage_text = self.stat_font.render(f"Player Items", True, white)
-            self.window.blit(storage_text, (screen_width//2, 32, 50, 17))
+        for i in self.inventory:
             # Draw inventory
             if i not in [self.selected[k] for k in self.selected]:
                 if item_index >= 5:
                     y_index += 1
                     item_index = 0
                     x_index = 0
-                y = y_index*64
-                x = x_index*64
+                y, x = y_index*64, x_index*64
                 item_pos = pygame.Rect((screen_width//2)+x, y, 64, 64)
                 pygame.draw.rect(self.window, brown, item_pos)
                 pygame.draw.rect(self.window, grey, item_pos, 1)
                 draw_item_ui(i, item_pos)
                 # Use items
-                if pygame.mouse.get_pressed()[0]:
-                    time.sleep(0.1)
-                    if item_pos.collidepoint(pygame.mouse.get_pos()):
-                        if "_potion" in i.obj_type:
+                if item_pos.collidepoint(pygame.mouse.get_pos()):
+                    self.show_item = True
+                    # Show item info
+                    self.show_pos = pygame.mouse.get_pos()
+                    self.showing_item = i
+                    # Use items
+                    if pygame.mouse.get_pressed()[0]:
+                        time.sleep(0.5)
+                        if "potion" in i.obj_type:
+                            self.sound_status["drink_potion"] = True# ???
                             i.drink_potion(self)
-                            self.inventory_map.remove(i)
+                            self.inventory.remove(i)
                             del i
                         else:# Add items to selected
+                            self.sound_status["inventory_items"] = True
                             for k in self.selected:
                                 if i.obj_type == k:
                                     self.selected[k] = i
                                     self.wear[k] = i.anim
                                     self.count_armor()
-                # Move items from inventory
-                if pygame.mouse.get_pressed()[2]:
-                    time.sleep(0.1)
-                    if item_pos.collidepoint(pygame.mouse.get_pos()):
-                        if storage != None:# Add item to the storage
-                            self.inventory_map.remove(i)
-                            storage.append(i)
-                        else:
-                            if space_free():# Remove item to map
+                    # Move items from player inventory
+                    if pygame.mouse.get_pressed()[2]:
+                        self.sound_status["inventory_items"] = True
+                        time.sleep(0.5)
+                        if self.box != None:# Add item to the box
+                            if len(self.box.inventory) <= self.box.capacity and i not in self.box.inventory:
+                                self.inventory.remove(i)
+                                self.box.inventory.append(i)
+                        else:# Remove item to map
+                            if space_free():
                                 i.map.x, i.map.y = self.map.x-scale, self.map.y-scale
-                                self.inventory_map.remove(i)
+                                self.inventory.remove(i)
                 x_index += 1
                 item_index += 1
             # Draw selected
@@ -416,15 +521,24 @@ class Person():
                 pygame.draw.rect(self.window, brown, selected_pos)
                 pygame.draw.rect(self.window, grey, selected_pos, 1)
                 draw_item_ui(i, selected_pos)
-                # Remove items from selected
-                if pygame.mouse.get_pressed()[0]:
-                    time.sleep(0.1)
-                    if selected_pos.collidepoint(pygame.mouse.get_pos()):
+                if selected_pos.collidepoint(pygame.mouse.get_pos()):
+                    self.show_item = True
+                    # Show item info
+                    self.show_pos = pygame.mouse.get_pos()
+                    self.showing_item = i
+                    # Move items from selected
+                    if pygame.mouse.get_pressed()[0]:
+                        self.sound_status["inventory_items"] = True
+                        time.sleep(0.5)
                         for k in self.selected:
-                            if i == self.selected[k]:
+                            if i == self.selected[k]:# ???
+                                if k == "head" and self.hair != None:
+                                    self.selected[k] = None
+                                    self.wear[k] = self.hair
+                                else:
                                     self.selected[k] = None
                                     self.wear[k] = None
-                                    self.count_armor()
+                                self.count_armor()
 
     def camera(self, world_map_rect):
         right_border = world_map_rect.width - screen_width
@@ -459,8 +573,8 @@ class Person():
     def draw_npc_stats(self, player):
         health_rect = pygame.Rect(0, 0, self.health_bar_width/5, scale/10)
         health_rect_i = pygame.Rect(0, 0, self.health/5, scale/10)
-        health_rect.center = (self.map.centerx-player.camera_x, self.map.y-15-player.camera_y)
-        health_rect_i.center = (self.map.centerx-player.camera_x, self.map.y-15-player.camera_y)
+        health_rect.center = (self.map.centerx-player.camera_x, self.map.y-32-player.camera_y)
+        health_rect_i.center = (self.map.centerx-player.camera_x, self.map.y-32-player.camera_y)
         pygame.draw.rect(self.window, red, health_rect, 1)
         pygame.draw.rect(self.window, red, health_rect_i)        
 
@@ -471,26 +585,30 @@ class Person():
                     x_distance = player.centerx - npc.centerx
                 elif npc.centerx > player.centerx:
                     x_distance = npc.centerx - player.centerx
-                else: x_distance = 0
+                else:
+                    x_distance = 0
                 if npc.centery < player.centery:
                     y_distance = player.centery - npc.centery
                 elif npc.centery > player.centery:
                     y_distance = npc.centery - player.centery
-                else: y_distance = 0
+                else:
+                    y_distance = 0
                 return x_distance, y_distance
             if x != None:
                 if x < player.centerx:
                     x_distance = player.centerx - x
                 elif x > player.centerx:
                     x_distance = x - player.centerx
-                else: x_distance = 0
+                else:
+                    x_distance = 0
                 return x_distance
             if y != None:
                 if y < player.centery:
                     y_distance = player.centery - y
                 elif y > player.centery:
                     y_distance = y - player.centery
-                else: y_distance = 0
+                else:
+                    y_distance = 0
                 return y_distance
         def calc_possible_moves(obj1, obj2_list) -> dict:
             moves = {"up":0, "down":0, "left":0, "right":0}
@@ -499,13 +617,17 @@ class Person():
                 if obj1 != obj2:
                     obj2 = obj2.map
                     if obj1.top == obj2.bottom and obj1.left >= obj2.left-15 and obj1.right <= obj2.right+15:
-                        if "up" in moves: moves.pop("up")
+                        if "up" in moves:
+                            moves.pop("up")
                     elif obj1.bottom == obj2.top and obj1.left >= obj2.left-15 and obj1.right <= obj2.right+15:
-                        if "down" in moves: moves.pop("down")
+                        if "down" in moves:
+                            moves.pop("down")
                     if obj1.left == obj2.right and obj1.top >= obj2.top-15 and obj1.bottom <= obj2.bottom+15:
-                        if "left" in moves: moves.pop("left")
+                        if "left" in moves:
+                            moves.pop("left")
                     elif obj1.right == obj2.left and obj1.top >= obj2.top-15 and obj1.bottom <= obj2.bottom+15:
-                        if "right" in moves: moves.pop("right")
+                        if "right" in moves:
+                            moves.pop("right")
             if "up" in moves:
                 moves["up"] = calc_distance(player=player.map, y=self.map.centery - self.speed)
             if "down" in moves:
@@ -516,19 +638,20 @@ class Person():
                 moves["right"] = calc_distance(player=player.map, x=self.map.centerx + self.speed)
             return moves
         # NPCs move to player when player in distance
-        if self.health > 0 and player.health > 0 and self.attacking == False:
+        if self.health > 0 and player.health > 0 and self.attacking == False and self.under_attack_time == None:
             x_distance, y_distance = calc_distance(player=player.map, npc=self.map)
             if x_distance < 200 and y_distance < 200:
-                # NPCs attack player
-                if x_distance < 17 and y_distance < 19:
-                    if "go" in self.move_status: self.move_status = self.move_status[:-3]
+                if x_distance < 17 and y_distance < 17:
+                    if "go" in self.move_status:
+                        self.move_status = self.move_status[:-3]
+                    # NPCs attack player
                     if self.selected["weapon"] != None and self.energy > 1:
                         self.attack(self, player)
                         self.energy -= self.selected["weapon"].cooldown_time*5
                         self.attacking = True
                         self.attack_time = time.time()
                 else:
-                    possible_moves = calc_possible_moves(self, sprites)#{'up': 57, 'down': 55, 'left': 79, 'right': 81}
+                    possible_moves = calc_possible_moves(self, sprites)
                     if len(possible_moves) == 4 and self.movement == None:
                         if self.map.centerx > player.map.centerx and self.map.left != player.map.right:
                             self.move("left", sprites)
@@ -543,19 +666,19 @@ class Person():
                             if "up" not in possible_moves or "down" not in possible_moves:
                                 if "left" in possible_moves:
                                     if self.map.centery < player.map.centery:
-                                        self.movement = {"left":35, "down":80}# If several obstacle ???
+                                        self.movement = {"left":40, "down":80}# If several obstacle ???
                                     elif self.map.centery > player.map.centery:
-                                        self.movement = {"left":35, "up":80}
+                                        self.movement = {"left":40, "up":80}
                                 elif "right" in possible_moves:
                                     if self.map.centery < player.map.centery:
-                                        self.movement = {"right":35, "down":80}
+                                        self.movement = {"right":40, "down":80}
                                     elif self.map.centery > player.map.centery:
-                                        self.movement = {"right":35, "up":80}
+                                        self.movement = {"right":40, "up":80}
                             if "left" not in possible_moves or "right" not in possible_moves:
                                 if "up" in possible_moves:
-                                    self.movement = {"up":35}
+                                    self.movement = {"up":40}
                                 elif "down" in possible_moves:
-                                    self.movement = {"down":35}
+                                    self.movement = {"down":40}
                         else:
                             for i in self.movement:
                                 if self.movement[i] >= 0:
@@ -571,4 +694,5 @@ class Person():
                                 else:
                                     break
             else:
-                if "go" in self.move_status: self.move_status = self.move_status[:-3]
+                if "go" in self.move_status:
+                    self.move_status = self.move_status[:-3]
