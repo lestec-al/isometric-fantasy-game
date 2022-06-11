@@ -1,26 +1,26 @@
 # RPG-like Game with Python and PyGame
 
-The project on early stage of development, but game may be improved. Demo is playable, but game world is very small.
+The project on early stage of development, but even now game (rather demo) is playable.
 
 <img src="https://github.com/lestec-al/rpg-like-python-game/raw/main/pic_game.png" width="750" height="470"/>
 
+Keyboard controls:
+- wasd: move, f: attack, e: append item, i: inventory-looting-trade (left-click: equip(use) item, right-click: remove(sell) item)
+
 What is ready (but could be improved):
-- player/NPC with animations, battle logic, skills (spear, sword), inventory, health, energy
-- some items (weapons, clothes, potions), chests
-- player keyboard controls (wasd - move, f - attack, i - inventory and stats)
-- basic UI
-- basic sounds
-- test world map with example NPC
-- NPC move (with colisions(not ideal), when player in some radius) and attack the player
+- player/NPC with animations, battle logic, skills (spear, sword), inventory, items, health, energy
+- type items: weapons, clothes, potions, coins and chests for them
+- NPC enemy move (with colisions, when player in some radius) and attack the player
+- NPC trader sells/buys items for 100 coins per item
+- interface, sounds, simple world map with NPCs
 
-Work in process:
-- optimization (fast, stable gameplay, code organize) ?
-- better battle logic (step back in battle) ?
-- improve sounds
-
-In future (maybe):
-- main menu, saves
-- simple story, normal world map (many NPCs, items(icons))
+Work in process (maybe):
+- optimization (fast, stable gameplay, code organize)
+- bigger world map with many NPCs, items and simple story
+- bow sprite, bow logic
+- enemy repopulation
+- improve trade (add prices)
+- rebalance items (damage, armor)
 
 You need:
 - install Python (v3.10 or higher)
