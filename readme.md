@@ -1,8 +1,8 @@
-# RPG-like Game with Python and PyGame
+# Adventurer's Path
 
-The project on early stage of development, but even now game (rather demo) is playable.
+Single Player and Co-op RPG-like Game with Python and PyGame. One level is ready. Can play single, and online (on local network).
 
-<img src="https://github.com/lestec-al/rpg-like-python-game/raw/main/pic_game.png" width="750" height="470"/>
+<img src="https://github.com/lestec-al/rpg-like-python-game/raw/main/pic_game.png" width="751" height="470"/>
 
 Keyboard controls:
 - wasd: move, f: attack, e: append item, i: inventory-looting-trade (left-click: equip(use) item, right-click: remove(sell) item)
@@ -14,21 +14,17 @@ What is ready (but could be improved):
 - NPC trader sells/buys items for 100 coins per item
 - interface, sounds, simple world map with NPCs
 
-Work in process (maybe):
-- optimization (fast, stable gameplay, code organize)
-- bigger world map with many NPCs, items and simple story
-- bow sprite, bow logic
-- enemy repopulation
-- improve trade (add prices)
-- rebalance items (damage, armor)
 
-You need:
+# Installation:
+
 - install Python (v3.10 or higher)
 - install PyGame, Pillow
 - download (and extract) or clone this repo
 - launch via command line "python main.py" in the project folder
 
-The project used:
+
+# The project used:
+
 - the map was created using the level editor "Tiled" - https://www.mapeditor.org
 - character sprites - https://opengameart.org/content/character-animations-clothes-armor-weapons-skeleton-enemy-combat-dummy
 - world map graphics - https://opengameart.org/content/2d-lost-garden-tileset-transition-to-jetrels-wood-tileset
