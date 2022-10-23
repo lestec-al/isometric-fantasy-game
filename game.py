@@ -460,6 +460,8 @@ class Person():
                         o.health -= damage
                         o.under_attack_time = time.time()
                         self.skills[skill] += 0.01
+                        if SERVER != None:
+                            DAMAGES.append((o.id, damage, o.under_attack_time))
 
     def move(self, direction:str):
         if direction == "up":
@@ -1016,9 +1018,136 @@ def calc_distance(person_map:pygame.Rect, x:int=None, y:int=None):
         return y_distance
 
 
+# ONLINE GAMEPLAY
+
+class OnlineUpdateThread(threading.Thread):
+    def run(self):
+        global HOST
+        if HOST == True:
+            conn, address = SERVER.accept()
+
+        self.running = True
+        while self.running:
+            time.sleep(0.01)
+
+            if HOST == True:
+                received = receive_updata_data(conn)
+                if conn:
+                    send_data(conn)
+
+            elif HOST == False:
+                send_data(SERVER)
+                received = receive_updata_data(SERVER)
+
+            # If no online players
+            if received == False:
+                self.running = False
+                if HOST == False:
+                    HOST = True
+                for s in HUMAN_PERSONS:
+                    if s != PLAYER:
+                        SPRITES.remove(s)
+                        HUMAN_PERSONS.remove(s)
+
+    def stop(self):
+        self.running = False
+
+
+def send_data(source):
+    sending_data = []
+    for s in HUMAN_PERSONS+NPC_PERSONS:
+        if s.obj_type != "npc-trader":
+            if HOST == True or (HOST == False and s.id == PLAYER.id):
+                s_data = {
+                    "player_id":s.id,
+                    "health":s.health,
+                    "attack_stop":s.attack_stop,
+                    "attack_anim_stop":s.attack_anim_stop,
+                    "attack_time":s.attack_time if s.attack_time != None else "None",
+                    "under_attack_time":s.under_attack_time if s.under_attack_time != None else "None",
+                    # "sword_skill":s.skills["sword"],
+                    # "spear_skill":s.skills["spear"],
+                    # "armor":s.armor,
+                    # "speed":s.speed,
+                    # "energy":s.energy,
+                    "map_x":s.map.x,
+                    "map_y":s.map.y,
+                    "move_status":s.move_status,
+                }
+            sending_data.append(s_data)
+    sending_data.append({"damages":DAMAGES})
+    data_to_send = json.dumps(sending_data)
+    try:
+        source.sendall(bytes(data_to_send,encoding="utf-8"))
+    except:
+        pass
+    DAMAGES.clear()
+
+
+def receive_updata_data(source):
+    def update_person_info(person:Person, url_person:dict):
+        person.move_status = d["move_status"]
+        # person.speed = url_person["speed"]
+        # person.skills["sword"] = url_person["sword_skill"]
+        # person.skills["spear"] = url_person["spear_skill"]
+        # person.armor = url_person["armor"]
+        # person.energy = url_person["energy"]
+        person.health = url_person["health"]
+        person.attack_stop = url_person["attack_stop"]
+        person.attack_anim_stop = url_person["attack_anim_stop"]
+        try:
+            person.attack_time = float(url_person["attack_time"])
+        except:
+            person.attack_time = None
+        try:
+            person.under_attack_time = float(url_person["under_attack_time"])
+        except:
+            person.under_attack_time = None
+
+    try:
+        received_data = source.recv(10000)
+        received_data = received_data.decode("utf-8")
+        received_data = json.loads(received_data)
+        for d in received_data:
+            if len(d) == 1:
+                for i in d["damages"]: # [(person.id, damage, under_attack_time), (person.id, damage, under_attack_time)]
+                    for s in HUMAN_PERSONS+NPC_PERSONS:
+                        if s.id == i[0]:
+                            s.health -= i[1]
+                            s.under_attack_time = i[2]
+                continue
+            # Check if person already exist
+            found = False
+            for s in HUMAN_PERSONS+NPC_PERSONS:
+                if s.id == d["player_id"]:
+                        found = True
+                        # Update person info
+                        if (HOST == True and d["player_id"] != PLAYER.id and d["player_id"] < 99) or (HOST == False and d["player_id"] != PLAYER.id):
+                            s.map.x = d["map_x"]
+                            s.map.y = d["map_y"]
+                            update_person_info(s, d)
+            # If person not found, create new
+            if found == False:
+                new = create_person("player")
+                new.obj_type = "online_player"
+                new.id = d["player_id"]
+                new.map = pygame.Rect(d["map_x"], d["map_y"], SCALE/2, SCALE/2)
+                update_person_info(new, d)
+        return True
+    except:
+        return False
+
+
 # UTILS FUNCTIONS (for start/exit and load game)
 
 def exit_game():
+    if SERVER != None:
+        for t in THREADS:
+            t.stop()
+        try:
+            SERVER.shutdown(socket.SHUT_RDWR)
+        except:pass
+        SERVER.close()
     pygame.quit()
     quit()
 
@@ -1084,7 +1213,7 @@ def create_person(person_type:str):
     #
     if "player" in person_type:
         person.obj_type = "player"
-        person.id = 1
+        person.id = PLAYER_ID
         HUMAN_PERSONS.append(person)
     else:
         unique_id = create_unique_id(HUMAN_PERSONS+NPC_PERSONS, 100)
@@ -1097,13 +1226,97 @@ def create_person(person_type:str):
     return person
 
 
+def menu_interface_tkinter():
+    """Handle Tkinter screen for game Main Menu"""
+
+    def server(option):
+        """Create or connect to a server. option = 'create' or 'connect'"""
+        global SERVER, HOST, PLAYER_ID, THREADS_NUMBER
+        try:
+            SERVER = socket.socket()
+            if option == "create":
+                SERVER.bind((HOST_IP, int(port_server_entry.get())))
+                SERVER.listen(int(players_entry.get()))
+                THREADS_NUMBER = int(players_entry.get())
+                HOST = True
+            elif option == "connect":
+                SERVER.connect((url_entry.get(), int(port_entry.get())))
+                HOST = False
+            PLAYER_ID = int(player_id.get())
+            root.destroy()
+        except Exception as e:
+            output.insert("end", f"{str(e)}\n")
+            output.pack(side="bottom", fill="both", expand=1)
+
+    # Screen
+    root = tk.Tk()
+    root.title("Adventurer's Path")
+    root.resizable(True, True)
+    root.configure(bg="white")
+    root.iconphoto(False, tk.PhotoImage(file="graphics/sword.png"))
+    win = tk.Frame(root, border=20, bg="white")
+    win.pack(side="top")
+
+    # Row
+    f0 = tk.Frame(win, border=1, bg="white")
+    f0.pack(side="top", fill="x", expand=1, pady=10)
+    new_online_b = tk.Button(f0, text="Create new online game", bg="peru", font=("Arial", 12), relief="groove", command=lambda:server("create"))
+    new_online_b.pack(side="left", padx=10)
+    url_server_label = tk.Label(f0, text=f"{HOST_IP}", font=("Arial", 12), border=2, bg="white")
+    url_server_label.pack(side="left", padx=10)
+    port_server_entry = tk.Entry(f0, font=("Arial", 12), border=2, bg="white", width=10, relief="groove", justify="center")
+    port_server_entry.pack(side="left", padx=10)
+    port_server_entry.insert("end", "5000")
+    players_label = tk.Label(f0, text="Online players", font=("Arial", 12), border=2, bg="white")
+    players_label.pack(side="left", padx=10)
+    players_entry = tk.Entry(f0, font=("Arial", 12), border=2, bg="white", width=5, relief="groove", justify="center")
+    players_entry.pack(side="left", padx=10)
+    players_entry.insert("end", "2")
+
+    # Row
+    f1 = tk.Frame(win, border=1, bg="white")
+    f1.pack(side="top", fill="x", expand=1, pady=10)
+    connect_b = tk.Button(f1, text="Connect to online game", bg="peru", font=("Arial", 12), relief="groove", border=2, padx=5, command=lambda:server("connect"))
+    connect_b.pack(side="left", padx=10)
+    url_entry = tk.Entry(f1, font=("Arial", 12), border=2, bg="white", relief="groove", justify="center")
+    url_entry.pack(side="left", padx=10)
+    url_entry.insert("end", HOST_IP)
+    port_entry = tk.Entry(f1, font=("Arial", 12), border=2, bg="white", width=10, relief="groove", justify="center")
+    port_entry.pack(side="left", padx=10)
+    port_entry.insert("end", "5000")
+
+    # Row
+    f2 = tk.Frame(win, border=1, bg="white")
+    f2.pack(side="top", fill="x", expand=1, pady=10)
+    new_game_b = tk.Button(f2, text="Start single-player game", bg="peru", font=("Arial", 12), relief="groove", command=root.destroy)
+    new_game_b.pack(side="left", padx=10)
+    player_id = tk.Entry(f2, font=("Arial", 12), border=2, bg="white", width=5, relief="groove", justify="center")
+    player_id.pack(side="right", padx=10)
+    player_id.insert("end", f"{str(PLAYER_ID)}")
+    player_id_label = tk.Label(f2, text="Player Online ID", font=("Arial", 12), border=2, bg="white")
+    player_id_label.pack(side="right", padx=10)
+
+    output = tk.Text(root, height=15, width=15)
+    root.protocol("WM_DELETE_WINDOW", quit)
+    root.mainloop()
+
+
 # START APP
 if __name__ == "__main__":
 
     # SETTINGS & LOAD RESOURCES
 
+    # Online gameplay
+    PLAYER_ID = 1 # Must be unique among other players on the network
+    HOST_IP = socket.gethostbyname(socket.gethostname())
+    SERVER, HOST = None, True
+    THREADS_NUMBER, THREADS = 1, []
+    DAMAGES = []
+
     SCREEN_WIDTH, SCREEN_HEIGHT = 1200, 720
     SCALE = 32 # Height and width one tile on map
+
+    menu_interface_tkinter()
 
     # Colors
     RED = (255,0,0)
@@ -1256,6 +1469,12 @@ if __name__ == "__main__":
                             trader.map = pygame.Rect(x, y, SCALE/2, SCALE/2)
                             trader.capacity = 30
 
+    if SERVER != None:
+        for _ in range(THREADS_NUMBER):
+            t = OnlineUpdateThread()
+            t.start()
+            THREADS.append(t)
+
 
     # MAIN LOOP - GAMEPLAY
     while True:
@@ -1295,7 +1514,8 @@ if __name__ == "__main__":
                 s.stats_restoration()
                 s.draw_npc_stats()
                 if "enemy" in s.obj_type:
-                    s.npc_move_attack()
+                    if HOST == True:
+                        s.npc_move_attack()
                 elif "trader" in s.obj_type:
                     s.draw_npc_dialogs()
                     if s.under_attack_time != None:
@@ -1312,6 +1532,8 @@ if __name__ == "__main__":
             PLAYER.camera()
         else:
             PLAYER.inventory_open = False
+            if SERVER == None:
+                exit_game()
 
         pygame.display.flip()
         CLOCK.tick(60) # FPS

@@ -13,12 +13,13 @@ What is ready (but could be improved):
 - NPC enemy move (with colisions, when player in some radius) and attack the player
 - NPC trader sells/buys items for 100 coins per item
 - interface, sounds, simple world map with NPCs
+- online gameplay
 
 
 # Installation:
 
 - install Python (v3.10 or higher)
-- install PyGame, Pillow
+- install PyGame, Pillow, Tkinter
 - download (and extract) or clone this repo
 - launch via command line "python main.py" in the project folder
 
