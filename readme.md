@@ -21,7 +21,7 @@ What is ready (but could be improved):
 - install Python (v3.10 or higher)
 - install PyGame, Pillow, Tkinter
 - download (and extract) or clone this repo
-- launch via command line "python main.py" in the project folder
+- launch via command line "python game.py" in the project folder
 
 
 # The project used:
