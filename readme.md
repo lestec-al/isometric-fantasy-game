@@ -1,6 +1,6 @@
 # Adventurer's Path
 
-Single Player and Co-op RPG-like Game with Python and PyGame. One level is ready. Can play single, and online (on local network).
+Single Player and Co-op RPG-like Game with Python and PyGame. One Demo level is ready. Can play single or online on local network.
 
 <img src="https://github.com/lestec-al/rpg-like-python-game/raw/main/pic_game.png" width="751" height="470"/>
 
@@ -13,7 +13,7 @@ What is ready (but could be improved):
 - NPC enemy move (with colisions, when player in some radius) and attack the player
 - NPC trader sells/buys items for 100 coins per item
 - interface, sounds, simple world map with NPCs
-- online gameplay
+- online gameplay on local network, ~2-3 players
 
 
 # Installation:

@@ -45,21 +45,6 @@ class Images():
         self.add_player_images()
         self.add_images(self.trees, "graphics/map/wood_tileset.png", 32)
 
-    def add_images(self, result:list, path:str, img_scale:int):
-        i = Image.open(path)
-        width, height = i.width, i.height
-        w, h = int(width/img_scale), int(height/img_scale)
-        left, upper, right, lower = 0, 0, img_scale, img_scale
-        r_i = 0
-        for _ in range(h):
-            c_i = 0
-            for _ in range(w):
-                image = i.crop((left+c_i, upper+r_i, right+c_i, lower+r_i))
-                img = self.pil_img_to_surface(image)
-                result.append(img)
-                c_i += img_scale
-            r_i += img_scale
-
     def add_player_images(self):
         for folder in os.listdir("graphics/player/"):
             for img_big in os.listdir(f"graphics/player/{folder}/"):
@@ -82,6 +67,21 @@ class Images():
                                     self.player[folder][k][img_big].append(img)
                         c_i += img_scale
                     r_i += img_scale
+
+    def add_images(self, result:list, path:str, img_scale:int):
+        i = Image.open(path)
+        width, height = i.width, i.height
+        w, h = int(width/img_scale), int(height/img_scale)
+        left, upper, right, lower = 0, 0, img_scale, img_scale
+        r_i = 0
+        for _ in range(h):
+            c_i = 0
+            for _ in range(w):
+                image = i.crop((left+c_i, upper+r_i, right+c_i, lower+r_i))
+                img = self.pil_img_to_surface(image)
+                result.append(img)
+                c_i += img_scale
+            r_i += img_scale
 
     def pil_img_to_surface(self, pil_img):
         return pygame.image.fromstring(pil_img.tobytes(), pil_img.size, pil_img.mode).convert_alpha()
@@ -260,7 +260,7 @@ class Person():
             return ready_anim_list
 
         def draw(direction, anim):
-            # Merge (body-clothes-belt-behind-shield) images into one + weapon separately and draw on screen
+            # Merge (body-clothes-belt-behind-shield) images into one + weapon separately
             image_body = choose_animations(direction, IMAGES.player[anim]["body"][self.wear["body"]])[int(self.anim_stage)]
             if self.wear["belt"] != None:
                 image_belt = choose_animations(direction, IMAGES.player[anim]["belt"][self.wear["belt"]])[int(self.anim_stage)]
@@ -299,6 +299,7 @@ class Person():
                 image = Image.alpha_composite(image, image_behind)
             if image_shield != None:
                 image = Image.alpha_composite(image, image_shield)
+            # Draw on screen
             img = IMAGES.pil_img_to_surface(image)
             self.screen = img.get_rect()
             self.screen.center = (self.map.centerx-PLAYER.camera_x, self.map.centery-20-PLAYER.camera_y)
@@ -354,12 +355,12 @@ class Person():
             elif self.move_status == "left":draw("l", "spellcast")
             elif self.move_status == "right":draw("r", "spellcast")
         elif self.attack_time != None and self.attack_anim_stop == False:
-            if "sword" in self.selected["weapon"].anim or "rapier" in self.selected["weapon"].anim:
+            if "sword" in self.wear["weapon"] or "rapier" in self.wear["weapon"]:
                 if self.move_status == "up":animate("u", "slash")
                 elif self.move_status == "down":animate("d", "slash")
                 elif self.move_status == "left":animate("l", "slash")
                 elif self.move_status == "right":animate("r", "slash")
-            elif "staff" in self.selected["weapon"].anim or "spear" in self.selected["weapon"].anim:
+            elif "staff" in self.wear["weapon"] or "spear" in self.wear["weapon"]:
                 if self.move_status == "up":animate("u", "thrust")
                 elif self.move_status == "down":animate("d", "thrust")
                 elif self.move_status == "left":animate("l", "thrust")
@@ -460,7 +461,7 @@ class Person():
                         o.health -= damage
                         o.under_attack_time = time.time()
                         self.skills[skill] += 0.01
-                        if SERVER != None:
+                        if ONLINE != None:
                             DAMAGES.append((o.id, damage, o.under_attack_time))
 
     def move(self, direction:str):
@@ -607,6 +608,7 @@ class Person():
                 for i in coins_objs:
                     inventory.remove(i)
                     del i
+
         def draw_item(item, pos):
             # If image doesn't exist, take from anim
             if item.image == None:
@@ -617,11 +619,12 @@ class Person():
             rect = image.get_rect()
             rect.center = pos.center
             WINDOW.blit(image, rect)
+
         self.show_item = False
         # Boxes
         self.box = None
         for s in SPRITES:
-            if "npc" in s.obj_type and s.health <= 0 or s.obj_type == "box":
+            if "npc" in s.obj_type and s.health <= 0 or s.obj_type == "box": # No online_player
                 if self.map.top == s.map.bottom and self.map.left >= s.map.left-SCALE and self.map.right <= s.map.right+SCALE:
                     self.box = s
                 elif self.map.bottom == s.map.top and self.map.left >= s.map.left-SCALE and self.map.right <= s.map.right+SCALE:
@@ -684,10 +687,10 @@ class Person():
                                                 self.trader.inventory.append(Coins(602, "Coins", "coins", ic.image, 100))
                             calc_coins(self.trader.inventory)
                         calc_coins(self.inventory)
-        # Inventory
+        # Draw inventory
         y_index, x_index, item_index = 1, 0, 0
         for i in self.inventory:
-            # Draw inventory
+            # Draw inventory item
             if i not in [self.selected[k] for k in self.selected]:
                 if item_index >= 5:
                     y_index += 1
@@ -756,7 +759,7 @@ class Person():
                         calc_coins(self.inventory)
                 x_index += 1
                 item_index += 1
-            # Draw selected
+            # Draw selected item
             else:
                 if i.obj_type == "weapon":
                     selected_pos = pygame.Rect(SCREEN_WIDTH-64,64,64,64)
@@ -1021,33 +1024,43 @@ def calc_distance(person_map:pygame.Rect, x:int=None, y:int=None):
 # ONLINE GAMEPLAY
 
 class OnlineUpdateThread(threading.Thread):
+    """This module provides communication between the player (host) and the player (client)"""
     def run(self):
         global HOST
         if HOST == True:
-            conn, address = SERVER.accept()
+            conn, address = ONLINE.accept()
+
+        self.last_receive_time = None
+        self.thread_player_id = None
 
         self.running = True
         while self.running:
             time.sleep(0.01)
 
             if HOST == True:
-                received = receive_updata_data(conn)
+                time_r, player_id = receive_updata_data(conn)
                 if conn:
                     send_data(conn)
 
             elif HOST == False:
-                send_data(SERVER)
-                received = receive_updata_data(SERVER)
+                send_data(ONLINE)
+                time_r, player_id = receive_updata_data(ONLINE)
 
-            # If no online players
-            if received == False:
-                self.running = False
-                if HOST == False:
-                    HOST = True
-                for s in HUMAN_PERSONS:
-                    if s != PLAYER:
-                        SPRITES.remove(s)
-                        HUMAN_PERSONS.remove(s)
+            # If online player do not responds 2 min - close thread
+            if time_r != None:
+                self.last_receive_time = time_r
+                self.thread_player_id = player_id
+            if self.last_receive_time != None:
+                if time.time() - self.last_receive_time > 120.0:
+                    self.running = False
+
+        # If thread stops - delete online players
+        if self.thread_player_id != None:
+            HOST = True
+            for s in HUMAN_PERSONS:
+                if s.id == self.thread_player_id:
+                    SPRITES.remove(s)
+                    HUMAN_PERSONS.remove(s)
 
     def stop(self):
         self.running = False
@@ -1065,15 +1078,13 @@ def send_data(source):
                     "attack_anim_stop":s.attack_anim_stop,
                     "attack_time":s.attack_time if s.attack_time != None else "None",
                     "under_attack_time":s.under_attack_time if s.under_attack_time != None else "None",
-                    # "sword_skill":s.skills["sword"],
-                    # "spear_skill":s.skills["spear"],
-                    # "armor":s.armor,
-                    # "speed":s.speed,
-                    # "energy":s.energy,
                     "map_x":s.map.x,
                     "map_y":s.map.y,
                     "move_status":s.move_status,
                 }
+                if s == PLAYER:
+                    s_data["wear"] = s.wear
+                    s_data["armor"] = s.armor
             sending_data.append(s_data)
     sending_data.append({"damages":DAMAGES})
     data_to_send = json.dumps(sending_data)
@@ -1087,11 +1098,6 @@ def send_data(source):
 def receive_updata_data(source):
     def update_person_info(person:Person, url_person:dict):
         person.move_status = d["move_status"]
-        # person.speed = url_person["speed"]
-        # person.skills["sword"] = url_person["sword_skill"]
-        # person.skills["spear"] = url_person["spear_skill"]
-        # person.armor = url_person["armor"]
-        # person.energy = url_person["energy"]
         person.health = url_person["health"]
         person.attack_stop = url_person["attack_stop"]
         person.attack_anim_stop = url_person["attack_anim_stop"]
@@ -1126,28 +1132,35 @@ def receive_updata_data(source):
                             s.map.x = d["map_x"]
                             s.map.y = d["map_y"]
                             update_person_info(s, d)
+                            if s in HUMAN_PERSONS:
+                                s.wear = d["wear"]
+                                s.armor = d["armor"]
+                                player_id = d["player_id"]
             # If person not found, create new
             if found == False:
                 new = create_person("player")
                 new.obj_type = "online_player"
                 new.id = d["player_id"]
                 new.map = pygame.Rect(d["map_x"], d["map_y"], SCALE/2, SCALE/2)
+                new.wear = d["wear"]
+                new.armor = d["armor"]
                 update_person_info(new, d)
-        return True
+
+        return time.time(), player_id
     except:
-        return False
+        return None, None
 
 
 # UTILS FUNCTIONS (for start/exit and load game)
 
 def exit_game():
-    if SERVER != None:
+    if ONLINE != None:
         for t in THREADS:
             t.stop()
         try:
-            SERVER.shutdown(socket.SHUT_RDWR)
+            ONLINE.shutdown(socket.SHUT_RDWR)
         except:pass
-        SERVER.close()
+        ONLINE.close()
     pygame.quit()
     quit()
 
@@ -1226,21 +1239,21 @@ def create_person(person_type:str):
     return person
 
 
-def menu_interface_tkinter():
+def main_menu_interface_tk():
     """Handle Tkinter screen for game Main Menu"""
 
     def server(option):
         """Create or connect to a server. option = 'create' or 'connect'"""
-        global SERVER, HOST, PLAYER_ID, THREADS_NUMBER
+        global ONLINE, HOST, PLAYER_ID, THREADS_NUMBER
         try:
-            SERVER = socket.socket()
+            ONLINE = socket.socket()
             if option == "create":
-                SERVER.bind((HOST_IP, int(port_server_entry.get())))
-                SERVER.listen(int(players_entry.get()))
+                ONLINE.bind((HOST_IP, int(port_server_entry.get())))
+                ONLINE.listen(int(players_entry.get()))
                 THREADS_NUMBER = int(players_entry.get())
                 HOST = True
             elif option == "connect":
-                SERVER.connect((url_entry.get(), int(port_entry.get())))
+                ONLINE.connect((url_entry.get(), int(port_entry.get())))
                 HOST = False
             PLAYER_ID = int(player_id.get())
             root.destroy()
@@ -1306,17 +1319,17 @@ if __name__ == "__main__":
 
     # SETTINGS & LOAD RESOURCES
 
-    # Online gameplay
+    # Online gameplay vars
     PLAYER_ID = 1 # Must be unique among other players on the network
     HOST_IP = socket.gethostbyname(socket.gethostname())
-    SERVER, HOST = None, True
+    ONLINE, HOST = None, True
     THREADS_NUMBER, THREADS = 1, []
     DAMAGES = []
 
     SCREEN_WIDTH, SCREEN_HEIGHT = 1200, 720
     SCALE = 32 # Height and width one tile on map
 
-    menu_interface_tkinter()
+    main_menu_interface_tk()
 
     # Colors
     RED = (255,0,0)
@@ -1469,7 +1482,8 @@ if __name__ == "__main__":
                             trader.map = pygame.Rect(x, y, SCALE/2, SCALE/2)
                             trader.capacity = 30
 
-    if SERVER != None:
+    # On host - create threads for other players. On client - only one thread
+    if ONLINE != None:
         for _ in range(THREADS_NUMBER):
             t = OnlineUpdateThread()
             t.start()
@@ -1477,6 +1491,7 @@ if __name__ == "__main__":
 
 
     # MAIN LOOP - GAMEPLAY
+
     while True:
         for event in pygame.event.get():
             if event.type == QUIT:
@@ -1495,7 +1510,7 @@ if __name__ == "__main__":
                 else:
                     WINDOW.blit(i.image, (i.map.x-PLAYER.camera_x, i.map.y-PLAYER.camera_y))
         for s in sorted(SPRITES, key=lambda s: s.map.centery):
-            if s not in DEAD_NPCS and "npc" in s.obj_type and s.health <= 0:
+            if s not in DEAD_NPCS and (s.obj_type == "online_player" or "npc" in s.obj_type) and s.health <= 0:
                 DEAD_NPCS.append(s)
             elif s.obj_type == "player" or s.obj_type == "online_player" or "npc" in s.obj_type and s.health > 0:
                 s.draw_person()
@@ -1532,7 +1547,7 @@ if __name__ == "__main__":
             PLAYER.camera()
         else:
             PLAYER.inventory_open = False
-            if SERVER == None:
+            if ONLINE == None:
                 exit_game()
 
         pygame.display.flip()
