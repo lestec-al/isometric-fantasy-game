@@ -1,13 +1,13 @@
 # Adventurer's Path
 
-Single Player and Co-op RPG-like Game with Python and PyGame. One Demo level is ready. Can play single or online on local network.
+Single Player and Co-op isometric Game with Python and PyGame. One Demo level is ready. Can play single or online on local network.
 
-<img src="https://github.com/lestec-al/rpg-like-python-game/raw/main/pic_game.png" width="751" height="470"/>
+<img src="https://github.com/lestec-al/adventurer-s-path-game/raw/main/pic_game.png" width="751" height="470"/>
 
 Keyboard controls:
-- wasd: move, f: attack, e: append item, i: inventory-looting-trade (left-click: equip(use) item, right-click: remove(sell) item)
+- wasd: move, f: attack, e: append item, i: inventory-looting-trade (mouse left-click: equip(use) item, mouse right-click: remove(sell) item)
 
-What is ready (but could be improved):
+Mechanics:
 - player/NPC with animations, battle logic, skills (spear, sword), inventory, items, health, energy
 - type items: weapons, clothes, potions, coins and chests for them
 - NPC enemy move (with colisions, when player in some radius) and attack the player

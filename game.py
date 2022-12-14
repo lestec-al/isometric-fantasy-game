@@ -449,7 +449,7 @@ class Person():
             map_weapon.left = self.map.right
         for o in HUMAN_PERSONS+NPC_PERSONS:
             if self != o:
-                if s.obj_type == "player" or s.obj_type == "online_player" or "npc" in s.obj_type and s.health > 0:
+                if o.obj_type == "player" or o.obj_type == "online_player" or "npc" in o.obj_type and o.health > 0:
                     if map_weapon.colliderect(o.map):
                         skill = self.selected["weapon"].anim[7:-4]
                         if "spear" in skill or skill == "staff": skill = "spear"
@@ -850,7 +850,7 @@ class Person():
 
     def draw_npc_dialogs(self):
         if self.health > 0 and PLAYER.health > 0 and self.attack_time == None and self.under_attack_time == None:
-            x_distance, y_distance, _ = calc_distance(person_map=PLAYER.map, x=self.map.centerx, y=self.map.centery)
+            x_distance, y_distance, _ = self.calc_distance(person_map=PLAYER.map, x=self.map.centerx, y=self.map.centery)
             if x_distance < 40 and y_distance < 40:
                 # Change move status on player direction when player in radius
                 test = pygame.Rect((self.map.x, self.map.y),(40, 40))
@@ -874,24 +874,29 @@ class Person():
 
     def npc_move_attack(self):
         if self.health > 0 and self.attack_time == None and self.under_attack_time == None:
-            # Specify all players (player + online_player's) and calculate distance to them
+            # NPC seen radius
+            seen_radius = pygame.Rect((0,0),(300,300))
+            seen_radius.center = (self.map.centerx, self.map.centery)
+            # Specify enemies for NPC and calculate distance to them
             distances = []
             for p in HUMAN_PERSONS:
                 if p.health > 0:
-                    x, y, d = calc_distance(person_map=p.map, x=self.map.centerx, y=self.map.centery)
-                    if x < 200 and y < 200:
+                    if seen_radius.colliderect(p.map):
+                        x, y, d = self.calc_distance(person_map=p.map, x=self.map.centerx, y=self.map.centery)
                         distances.append([p, x, y, d])
-            # When players approach an NPC, select the nearest player
+
+            # If player/s in NPC seen radius
             if len(distances) > 0:
                 distances.sort(key=lambda s:s[3])
                 player = distances[0][0]
-                # When NPC close to player
+
+                # When NPC close to the player
                 if (distances[0][1] < self.selected["weapon"].radius and distances[0][2] < 10 or
                     distances[0][2] < self.selected["weapon"].radius and distances[0][1] < 10):
-                    # Change move status on player direction
+                    # Stop anim
                     if "go" in self.move_status:
                         self.move_status = self.move_status[:-3]
-                    # Testing all sides
+                    # Turn to the player - testing all sides
                     test = pygame.Rect((self.map.x,self.map.y),(self.selected["weapon"].radius,self.selected["weapon"].radius))
                     test.center = self.map.center
                     for status in ["up","down","left","right"]:
@@ -905,17 +910,19 @@ class Person():
                             test.left = self.map.right
                         if test.colliderect(player.map):
                             self.move_status = status
-                    # NPC attack player
+                    # Attack player
                     if self.selected["weapon"] != None and self.energy >= self.selected["weapon"].cooldown*5:
                         self.attack()
                         self.energy -= self.selected["weapon"].cooldown*5
                         self.attack_time = time.time()
-                # NPC move to player
+
+                # When the NPC is away from the player
                 else:
                     # Calculate possible moves
                     possible_moves = {"up":0, "down":0, "left":0, "right":0}
                     o1 = self.map
-                    # Checking obstacles ???
+
+                    # Checking obstacles
                     for o2 in SPRITES:
                         if o1 != o2:
                             o2 = o2.map
@@ -936,13 +943,14 @@ class Person():
                                 if "right" in possible_moves:
                                     possible_moves.pop("right")
                     if "up" in possible_moves:
-                        possible_moves["up"] = calc_distance(person_map=player.map, y=self.map.centery-self.speed)
+                        possible_moves["up"] = self.calc_distance(person_map=player.map, y=self.map.centery-self.speed)
                     if "down" in possible_moves:
-                        possible_moves["down"] = calc_distance(person_map=player.map, y=self.map.centery+self.speed)
+                        possible_moves["down"] = self.calc_distance(person_map=player.map, y=self.map.centery+self.speed)
                     if "left" in possible_moves:
-                        possible_moves["left"] = calc_distance(person_map=player.map, x=self.map.centerx-self.speed)
+                        possible_moves["left"] = self.calc_distance(person_map=player.map, x=self.map.centerx-self.speed)
                     if "right" in possible_moves:
-                        possible_moves["right"] = calc_distance(person_map=player.map, x=self.map.centerx+self.speed)
+                        possible_moves["right"] = self.calc_distance(person_map=player.map, x=self.map.centerx+self.speed)
+
                     # Moving
                     if self.movement == None:
                         if ("up" not in possible_moves and self.map.centery > player.map.centery or
@@ -980,6 +988,7 @@ class Person():
                                     self.move("left")
                                 elif self.map.centerx < player.map.centerx:
                                     self.move("right")
+
                     elif self.movement != None:
                         for i in self.movement:
                             if i in possible_moves:
@@ -990,41 +999,41 @@ class Person():
                                     self.movement = None
                                 else: break
                             else: self.movement = None
-            # NPC stops
+
+            # If the NPC did not see the player/s -> stop
             else:
                 if "go" in self.move_status:
                     self.move_status = self.move_status[:-3]
 
-
-def calc_distance(person_map:pygame.Rect, x:int=None, y:int=None):
-    """Calculate distance (in 'x' and/or 'y') from Person.map to 'x' and/or 'y'"""
-    if x != None:
-        if x < person_map.centerx:
-            x_distance = person_map.centerx - x
-        elif x > person_map.centerx:
-            x_distance = x - person_map.centerx
-        else:
-            x_distance = 0
-    if y != None:
-        if y < person_map.centery:
-            y_distance = person_map.centery - y
-        elif y > person_map.centery:
-            y_distance = y - person_map.centery
-        else:
-            y_distance = 0
-    if x != None and y != None:
-        eu_distance = ((x - person_map.centerx)**2 + (y - person_map.centery)**2)**0.5
-        return x_distance, y_distance, eu_distance
-    elif x != None:
-        return x_distance
-    elif y != None:
-        return y_distance
+    def calc_distance(self, person_map:pygame.Rect, x:int=None, y:int=None):
+        """Calculate distance from Person.map to 'x' and/or 'y'"""
+        if x != None:
+            if x < person_map.centerx:
+                x_distance = person_map.centerx - x
+            elif x > person_map.centerx:
+                x_distance = x - person_map.centerx
+            else:
+                x_distance = 0
+        if y != None:
+            if y < person_map.centery:
+                y_distance = person_map.centery - y
+            elif y > person_map.centery:
+                y_distance = y - person_map.centery
+            else:
+                y_distance = 0
+        if x != None and y != None:
+            eu_distance = ((x - person_map.centerx)**2 + (y - person_map.centery)**2)**0.5
+            return x_distance, y_distance, eu_distance
+        elif x != None:
+            return x_distance
+        elif y != None:
+            return y_distance
 
 
 # ONLINE GAMEPLAY
 
 class OnlineUpdateThread(threading.Thread):
-    """This module provides communication between the player (host) and the player (client)"""
+    """This module provides communication between the player (host) and the player/s (client/s)"""
     def run(self):
         global HOST
         if HOST == True:
@@ -1038,13 +1047,13 @@ class OnlineUpdateThread(threading.Thread):
             time.sleep(0.01)
 
             if HOST == True:
-                time_r, player_id = receive_updata_data(conn)
+                time_r, player_id = self.receive_updata_data(conn)
                 if conn:
-                    send_data(conn)
+                    self.send_data(conn)
 
             elif HOST == False:
-                send_data(ONLINE)
-                time_r, player_id = receive_updata_data(ONLINE)
+                self.send_data(ONLINE)
+                time_r, player_id = self.receive_updata_data(ONLINE)
 
             # If online player do not responds 2 min - close thread
             if time_r != None:
@@ -1065,90 +1074,88 @@ class OnlineUpdateThread(threading.Thread):
     def stop(self):
         self.running = False
 
-
-def send_data(source):
-    sending_data = []
-    for s in HUMAN_PERSONS+NPC_PERSONS:
-        if s.obj_type != "npc-trader":
-            if HOST == True or (HOST == False and s.id == PLAYER.id):
-                s_data = {
-                    "player_id":s.id,
-                    "health":s.health,
-                    "attack_stop":s.attack_stop,
-                    "attack_anim_stop":s.attack_anim_stop,
-                    "attack_time":s.attack_time if s.attack_time != None else "None",
-                    "under_attack_time":s.under_attack_time if s.under_attack_time != None else "None",
-                    "map_x":s.map.x,
-                    "map_y":s.map.y,
-                    "move_status":s.move_status,
-                }
-                if s == PLAYER:
-                    s_data["wear"] = s.wear
-                    s_data["armor"] = s.armor
-            sending_data.append(s_data)
-    sending_data.append({"damages":DAMAGES})
-    data_to_send = json.dumps(sending_data)
-    try:
-        source.sendall(bytes(data_to_send,encoding="utf-8"))
-    except:
-        pass
-    DAMAGES.clear()
-
-
-def receive_updata_data(source):
-    def update_person_info(person:Person, url_person:dict):
-        person.move_status = d["move_status"]
-        person.health = url_person["health"]
-        person.attack_stop = url_person["attack_stop"]
-        person.attack_anim_stop = url_person["attack_anim_stop"]
+    def send_data(self, source):
+        sending_data = []
+        for s in HUMAN_PERSONS+NPC_PERSONS:
+            if s.obj_type != "npc-trader":
+                if HOST == True or (HOST == False and s.id == PLAYER.id):
+                    s_data = {
+                        "player_id":s.id,
+                        "health":s.health,
+                        "attack_stop":s.attack_stop,
+                        "attack_anim_stop":s.attack_anim_stop,
+                        "attack_time":s.attack_time if s.attack_time != None else "None",
+                        "under_attack_time":s.under_attack_time if s.under_attack_time != None else "None",
+                        "map_x":s.map.x,
+                        "map_y":s.map.y,
+                        "move_status":s.move_status,
+                    }
+                    if s == PLAYER:
+                        s_data["wear"] = s.wear
+                        s_data["armor"] = s.armor
+                sending_data.append(s_data)
+        sending_data.append({"damages":DAMAGES})
+        data_to_send = json.dumps(sending_data)
         try:
-            person.attack_time = float(url_person["attack_time"])
+            source.sendall(bytes(data_to_send,encoding="utf-8"))
         except:
-            person.attack_time = None
+            pass
+        DAMAGES.clear()
+
+    def receive_updata_data(self, source):
+        def update_person_info(person:Person, url_person:dict):
+            person.move_status = d["move_status"]
+            person.health = url_person["health"]
+            person.attack_stop = url_person["attack_stop"]
+            person.attack_anim_stop = url_person["attack_anim_stop"]
+            try:
+                person.attack_time = float(url_person["attack_time"])
+            except:
+                person.attack_time = None
+            try:
+                person.under_attack_time = float(url_person["under_attack_time"])
+            except:
+                person.under_attack_time = None
+
         try:
-            person.under_attack_time = float(url_person["under_attack_time"])
+            received_data = source.recv(10000)
+            received_data = received_data.decode("utf-8")
+            received_data = json.loads(received_data)
+            for d in received_data:
+                if len(d) == 1:
+                    for i in d["damages"]: # [(person.id, damage, under_attack_time), (person.id, damage, under_attack_time)]
+                        for s in HUMAN_PERSONS+NPC_PERSONS:
+                            if s.id == i[0]:
+                                s.health -= i[1]
+                                s.under_attack_time = i[2]
+                    continue
+                # Check if person already exist
+                found = False
+                for s in HUMAN_PERSONS+NPC_PERSONS:
+                    if s.id == d["player_id"]:
+                            found = True
+                            # Update person info
+                            if (HOST == True and d["player_id"] != PLAYER.id and d["player_id"] < 99) or (HOST == False and d["player_id"] != PLAYER.id):
+                                s.map.x = d["map_x"]
+                                s.map.y = d["map_y"]
+                                update_person_info(s, d)
+                                if s in HUMAN_PERSONS:
+                                    s.wear = d["wear"]
+                                    s.armor = d["armor"]
+                                    player_id = d["player_id"]
+                # If person not found, create new
+                if found == False:
+                    new = create_person("player")
+                    new.obj_type = "online_player"
+                    new.id = d["player_id"]
+                    new.map = pygame.Rect(d["map_x"], d["map_y"], SCALE/2, SCALE/2)
+                    new.wear = d["wear"]
+                    new.armor = d["armor"]
+                    update_person_info(new, d)
+
+            return time.time(), player_id
         except:
-            person.under_attack_time = None
-
-    try:
-        received_data = source.recv(10000)
-        received_data = received_data.decode("utf-8")
-        received_data = json.loads(received_data)
-        for d in received_data:
-            if len(d) == 1:
-                for i in d["damages"]: # [(person.id, damage, under_attack_time), (person.id, damage, under_attack_time)]
-                    for s in HUMAN_PERSONS+NPC_PERSONS:
-                        if s.id == i[0]:
-                            s.health -= i[1]
-                            s.under_attack_time = i[2]
-                continue
-            # Check if person already exist
-            found = False
-            for s in HUMAN_PERSONS+NPC_PERSONS:
-                if s.id == d["player_id"]:
-                        found = True
-                        # Update person info
-                        if (HOST == True and d["player_id"] != PLAYER.id and d["player_id"] < 99) or (HOST == False and d["player_id"] != PLAYER.id):
-                            s.map.x = d["map_x"]
-                            s.map.y = d["map_y"]
-                            update_person_info(s, d)
-                            if s in HUMAN_PERSONS:
-                                s.wear = d["wear"]
-                                s.armor = d["armor"]
-                                player_id = d["player_id"]
-            # If person not found, create new
-            if found == False:
-                new = create_person("player")
-                new.obj_type = "online_player"
-                new.id = d["player_id"]
-                new.map = pygame.Rect(d["map_x"], d["map_y"], SCALE/2, SCALE/2)
-                new.wear = d["wear"]
-                new.armor = d["armor"]
-                update_person_info(new, d)
-
-        return time.time(), player_id
-    except:
-        return None, None
+            return None, None
 
 
 # UTILS FUNCTIONS (for start/exit and load game)
@@ -1229,8 +1236,7 @@ def create_person(person_type:str):
         person.id = PLAYER_ID
         HUMAN_PERSONS.append(person)
     else:
-        unique_id = create_unique_id(HUMAN_PERSONS+NPC_PERSONS, 100)
-        person.id = unique_id
+        person.id = create_unique_id(HUMAN_PERSONS+NPC_PERSONS, 100)
         NPC_PERSONS.append(person)
         if "trader" in person_type:
             person.obj_type = "npc-trader"
@@ -1239,8 +1245,8 @@ def create_person(person_type:str):
     return person
 
 
-def main_menu_interface_tk():
-    """Handle Tkinter screen for game Main Menu"""
+def load_main_menu():
+    """Load Tkinter screen like game Main Menu"""
 
     def server(option):
         """Create or connect to a server. option = 'create' or 'connect'"""
@@ -1263,7 +1269,7 @@ def main_menu_interface_tk():
 
     # Screen
     root = tk.Tk()
-    root.title("Adventurer's Path")
+    root.title(GAME_NAME)
     root.resizable(True, True)
     root.configure(bg="white")
     root.iconphoto(False, tk.PhotoImage(file="graphics/sword.png"))
@@ -1314,12 +1320,10 @@ def main_menu_interface_tk():
     root.mainloop()
 
 
-# START APP
+# START APP -> LOAD RESOURCES, SETTINGS -> GAMEPLAY
+
 if __name__ == "__main__":
-
-    # SETTINGS & LOAD RESOURCES
-
-    # Online gameplay vars
+    # Online
     PLAYER_ID = 1 # Must be unique among other players on the network
     HOST_IP = socket.gethostbyname(socket.gethostname())
     ONLINE, HOST = None, True
@@ -1328,8 +1332,9 @@ if __name__ == "__main__":
 
     SCREEN_WIDTH, SCREEN_HEIGHT = 1200, 720
     SCALE = 32 # Height and width one tile on map
+    GAME_NAME = "Adventurer's Path"
 
-    main_menu_interface_tk()
+    load_main_menu()
 
     # Colors
     RED = (255,0,0)
@@ -1342,7 +1347,7 @@ if __name__ == "__main__":
     pygame.init()
     pygame.display.set_icon(pygame.image.load("graphics/sword.png"))
     WINDOW = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), vsync=1)
-    pygame.display.set_caption("Adventurer's Path")
+    pygame.display.set_caption(GAME_NAME)
     CLOCK = pygame.time.Clock()
 
     # Load assets for map, objects
@@ -1358,17 +1363,14 @@ if __name__ == "__main__":
     # Stats for object creation
     PERSONS_STATS = [
         {"obj_type":"player", "health":100, "speed":2, "body":'body_male.png', "hair":"head_hair_blonde.png", "sword_skill":1, "spear_skill":1,
-        # Numbers point to items ids below
-        "head":None, "weapon":2, "torso":11, "hands":None, "legs":16, "belt":19, "feet":21, "behind":None, "shield":None, "inventory":[25,26,27]},
+        "head":None, "weapon":2, "torso":11, "hands":None, "legs":16, "belt":19, "feet":21, "behind":None, "shield":None, "inventory":[25,26,27]}, # Numbers point to items ids below
 
         {"obj_type":"enemy", "health":50, "speed":1, "body":'body_skeleton.png', "hair":None, "sword_skill":1, "spear_skill":1,
-        # Numbers point to items ids below
-        "head":None, "weapon":0, "torso":None, "hands":None, "legs":None, "belt":None, "feet":None, "behind":None, "shield":None, "inventory":[27]},
+        "head":None, "weapon":0, "torso":None, "hands":None, "legs":None, "belt":None, "feet":None, "behind":None, "shield":None, "inventory":[27]}, # Numbers point to items ids below
 
         {"obj_type":"trader", "health":150, "speed":2, "body":'body_male.png', "hair":None, "sword_skill":5, "spear_skill":1,
-        # Numbers point to items ids below
-        "head":8, "weapon":5, "torso":12, "hands":None, "legs":17, "belt":20, "feet":21, "behind":None, "shield":None, "inventory":[27,1,3,4,5,6,25,26,8,10,12,14,15,17,18,20,22,24],
-        "dialogs":["Trade ?"]}
+        "head":8, "weapon":5, "torso":12, "hands":None, "legs":17, "belt":20, "feet":21, "behind":None, "shield":None, "inventory":[27,1,3,4,5,6,25,26,8,10,12,14,15,17,18,20,22,24], # Numbers point to items ids below
+        "dialogs":["Trade ?", "How about trade"]}
     ]
     ITEMS_STATS = [
         # Weapons
@@ -1420,6 +1422,7 @@ if __name__ == "__main__":
         ITEMS.append(item)
 
     # Create boxes
+    created_boxes = []
     for i in BOXES_STATS:
         # Create box items copy
         for p_item in persons_boxes_items():
@@ -1431,9 +1434,9 @@ if __name__ == "__main__":
         for item in ITEMS:
             if item.id in i["inventory"]:
                 if item.obj_type == "coins":
-                    item.amount = random.randint(10,item.amount)# Randomize coins amount
+                    item.amount = random.randint(10,item.amount) # Randomize coins amount
                 box.inventory.append(item)
-        SPRITES.append(box)
+        created_boxes.append(box)
 
     # Create world (map + objects + persons)
     for file_path in ["graphics/map/world_map_borders.csv", "graphics/map/world_map_trees.csv", "graphics/map/world_map_obj.csv"]:
@@ -1473,10 +1476,11 @@ if __name__ == "__main__":
                             enemy = create_person("enemy")
                             enemy.map = pygame.Rect(x, y, SCALE/2, SCALE/2)
                         elif i == 4:
-                            for s in SPRITES:
-                                if s.obj_type == "box" and s.map == None:
+                            for s in created_boxes:
+                                if s.map == None:
                                     s.map = pygame.Rect(x, y, SCALE, SCALE)
                                     s.map.inflate_ip(0,-10)
+                                    SPRITES.append(s)
                         elif i == 5:
                             trader = create_person("trader")
                             trader.map = pygame.Rect(x, y, SCALE/2, SCALE/2)
@@ -1490,8 +1494,7 @@ if __name__ == "__main__":
             THREADS.append(t)
 
 
-    # MAIN LOOP - GAMEPLAY
-
+    # GAMEPLAY
     while True:
         for event in pygame.event.get():
             if event.type == QUIT:
