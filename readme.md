@@ -1,16 +1,21 @@
 # Adventurer's Path game
 
-The player/s and the merchant survived the storm and now find themselves on a small island with hostile skeletons.
-
-## Description
-
-This is a small Single Player and Co-op isometric fantasy game (demo game project on python with pygame). One Demo level is ready. You can play single or with friends on local network.
+The player survived the storm and found himself on a small island with hostile skeletons. Help him defeat evil and find treasures.
 
 <img src="https://github.com/lestec-al/adventurer-s-path-game/raw/main/graphics/pic_game_1.png" width="375" height="225"/>  <img src="https://github.com/lestec-al/adventurer-s-path-game/raw/main/graphics/pic_game_4.png" width="375" height="225"/>
 <img src="https://github.com/lestec-al/adventurer-s-path-game/raw/main/graphics/pic_game_5.png" width="375" height="225"/>  <img src="https://github.com/lestec-al/adventurer-s-path-game/raw/main/graphics/pic_game_6.png" width="375" height="225"/>
 
+## Description
+
+This is a demo project of an isometric fantasy game. One small level is ready. You can play alone or with friends over a local network.
+
 Keyboard controls:
-- wasd: move, f: attack, e: append item, i: inventory-looting-trade (mouse left-click: equip(use) item, mouse right-click: remove(sell) item)
+- wasd: move
+- f: attack
+- e: append item
+- i: inventory / looting / trade
+    - mouse left-click: equip / use item
+    - mouse right-click: remove / sell item
 
 Mechanics:
 - player/NPC with animations, battle logic, skills (spear, sword), inventory, items, health, energy
