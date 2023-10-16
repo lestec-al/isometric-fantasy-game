@@ -1,8 +1,14 @@
 # Adventurer's Path
 
-Single Player and Co-op isometric Game with Python and PyGame. One Demo level is ready. Can play single or online on local network.
+## Description
 
-<img src="https://github.com/lestec-al/adventurer-s-path-game/raw/main/pic_game.png" width="751" height="470"/>
+The player/s and the merchant survived the storm and now find themselves on a small island with hostile skeletons.
+
+This is a small Single Player and Co-op isometric fantasy game (demo game project on python with pygame). One Demo level is ready. You can play single or with friends on local network.
+
+<img src="https://github.com/lestec-al/adventurer-s-path-game/raw/main/graphics/pic_game_1.png" width="375" height="225"/>  <img src="https://github.com/lestec-al/adventurer-s-path-game/raw/main/graphics/pic_game_2.png" width="375" height="225"/>
+<img src="https://github.com/lestec-al/adventurer-s-path-game/raw/main/graphics/pic_game_3.png" width="375" height="225"/>  <img src="https://github.com/lestec-al/adventurer-s-path-game/raw/main/graphics/pic_game_4.png" width="375" height="225"/>
+<img src="https://github.com/lestec-al/adventurer-s-path-game/raw/main/graphics/pic_game_5.png" width="375" height="225"/>  <img src="https://github.com/lestec-al/adventurer-s-path-game/raw/main/graphics/pic_game_6.png" width="375" height="225"/>
 
 Keyboard controls:
 - wasd: move, f: attack, e: append item, i: inventory-looting-trade (mouse left-click: equip(use) item, mouse right-click: remove(sell) item)
@@ -16,7 +22,7 @@ Mechanics:
 - online gameplay on local network, ~2-3 players
 
 
-# Installation:
+## Installation
 
 - install Python (v3.10 or higher)
 - install PyGame, Pillow, Tkinter
@@ -24,7 +30,7 @@ Mechanics:
 - launch via command line "python game.py" in the project folder
 
 
-# The project used:
+## The project used
 
 - the map was created using the level editor "Tiled" - https://www.mapeditor.org
 - character sprites - https://opengameart.org/content/character-animations-clothes-armor-weapons-skeleton-enemy-combat-dummy
