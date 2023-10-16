@@ -1,4 +1,4 @@
-import pygame, random, os, time, threading, socket, json, tkinter as tk
+import pygame, random, os, time, threading, socket, json, sys, platform, tkinter as tk
 from pygame.locals import *
 from PIL import Image
 
@@ -1169,7 +1169,7 @@ def exit_game():
         except:pass
         ONLINE.close()
     pygame.quit()
-    quit()
+    sys.exit()
 
 
 def create_unique_id(objs_list:list, start_id=1):
@@ -1316,7 +1316,7 @@ def load_main_menu():
     player_id_label.pack(side="right", padx=10)
 
     output = tk.Text(root, height=15, width=15)
-    root.protocol("WM_DELETE_WINDOW", quit)
+    root.protocol("WM_DELETE_WINDOW", sys.exit)
     root.mainloop()
 
 
