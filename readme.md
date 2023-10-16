@@ -33,6 +33,8 @@ Mechanics:
 - download (and extract) or clone this repo
 - launch via command line "python game.py" in the project folder
 
+Or if you are using Windows 10, download the app from releases, extract "game.7z" and run "game.exe" inside the folder.
+
 
 ## The project used
 
