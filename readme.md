@@ -6,8 +6,7 @@ The player/s and the merchant survived the storm and now find themselves on a sm
 
 This is a small Single Player and Co-op isometric fantasy game (demo game project on python with pygame). One Demo level is ready. You can play single or with friends on local network.
 
-<img src="https://github.com/lestec-al/adventurer-s-path-game/raw/main/graphics/pic_game_1.png" width="375" height="225"/>  <img src="https://github.com/lestec-al/adventurer-s-path-game/raw/main/graphics/pic_game_2.png" width="375" height="225"/>
-<img src="https://github.com/lestec-al/adventurer-s-path-game/raw/main/graphics/pic_game_3.png" width="375" height="225"/>  <img src="https://github.com/lestec-al/adventurer-s-path-game/raw/main/graphics/pic_game_4.png" width="375" height="225"/>
+<img src="https://github.com/lestec-al/adventurer-s-path-game/raw/main/graphics/pic_game_1.png" width="375" height="225"/>  <img src="https://github.com/lestec-al/adventurer-s-path-game/raw/main/graphics/pic_game_4.png" width="375" height="225"/>
 <img src="https://github.com/lestec-al/adventurer-s-path-game/raw/main/graphics/pic_game_5.png" width="375" height="225"/>  <img src="https://github.com/lestec-al/adventurer-s-path-game/raw/main/graphics/pic_game_6.png" width="375" height="225"/>
 
 Keyboard controls:
