@@ -1,8 +1,8 @@
-# Adventurer's Path
-
-## Description
+# Adventurer's Path game
 
 The player/s and the merchant survived the storm and now find themselves on a small island with hostile skeletons.
+
+## Description
 
 This is a small Single Player and Co-op isometric fantasy game (demo game project on python with pygame). One Demo level is ready. You can play single or with friends on local network.
 
