@@ -1,4 +1,4 @@
-import pygame, random, os, time, threading, socket, json, sys, platform, tkinter as tk
+import pygame, random, os, time, threading, socket, json, sys
 from pygame.locals import *
 from PIL import Image
 
@@ -1244,80 +1244,39 @@ def create_person(person_type:str):
     SPRITES.append(person)
     return person
 
+def tryStartServer():
+    """Create or connect to a server. option = 'create', 'connect', 'local'"""
 
-def load_main_menu():
-    """Load Tkinter screen like game Main Menu"""
-
-    def server(option):
-        """Create or connect to a server. option = 'create' or 'connect'"""
-        global ONLINE, HOST, PLAYER_ID, THREADS_NUMBER
+    if len(sys.argv) <= 1:
+        print("No arguments were given")
+    else:
+        for arg in sys.argv:
+            print("Passed arg: "+arg)
+        
         try:
-            ONLINE = socket.socket()
+            global ONLINE, HOST, PLAYER_ID, THREADS_NUMBER
+
+            option = sys.argv[1]
+            host_ip = sys.argv[2]
+            port_server = int(sys.argv[3])
+            players = int(sys.argv[4])
+            url = sys.argv[5]
+            port_connect = int(sys.argv[6])
+            player_id = int(sys.argv[7])
+
             if option == "create":
-                ONLINE.bind((HOST_IP, int(port_server_entry.get())))
-                ONLINE.listen(int(players_entry.get()))
-                THREADS_NUMBER = int(players_entry.get())
+                ONLINE = socket.socket()
+                ONLINE.bind((host_ip, port_server))
+                ONLINE.listen(players)
+                THREADS_NUMBER = players
                 HOST = True
             elif option == "connect":
-                ONLINE.connect((url_entry.get(), int(port_entry.get())))
+                ONLINE = socket.socket()
+                ONLINE.connect((url, port_connect))
                 HOST = False
-            PLAYER_ID = int(player_id.get())
-            root.destroy()
-        except Exception as e:
-            output.insert("end", f"{str(e)}\n")
-            output.pack(side="bottom", fill="both", expand=1)
-
-    # Screen
-    root = tk.Tk()
-    root.title(GAME_NAME)
-    root.resizable(True, True)
-    root.configure(bg="white")
-    root.iconphoto(False, tk.PhotoImage(file="graphics/sword.png"))
-    win = tk.Frame(root, border=20, bg="white")
-    win.pack(side="top")
-
-    # Row
-    f0 = tk.Frame(win, border=1, bg="white")
-    f0.pack(side="top", fill="x", expand=1, pady=10)
-    new_online_b = tk.Button(f0, text="Create new online game", bg="peru", font=("Arial", 12), relief="groove", command=lambda:server("create"))
-    new_online_b.pack(side="left", padx=10)
-    url_server_label = tk.Label(f0, text=f"{HOST_IP}", font=("Arial", 12), border=2, bg="white")
-    url_server_label.pack(side="left", padx=10)
-    port_server_entry = tk.Entry(f0, font=("Arial", 12), border=2, bg="white", width=10, relief="groove", justify="center")
-    port_server_entry.pack(side="left", padx=10)
-    port_server_entry.insert("end", "5000")
-    players_label = tk.Label(f0, text="Online players", font=("Arial", 12), border=2, bg="white")
-    players_label.pack(side="left", padx=10)
-    players_entry = tk.Entry(f0, font=("Arial", 12), border=2, bg="white", width=5, relief="groove", justify="center")
-    players_entry.pack(side="left", padx=10)
-    players_entry.insert("end", "2")
-
-    # Row
-    f1 = tk.Frame(win, border=1, bg="white")
-    f1.pack(side="top", fill="x", expand=1, pady=10)
-    connect_b = tk.Button(f1, text="Connect to online game", bg="peru", font=("Arial", 12), relief="groove", border=2, padx=5, command=lambda:server("connect"))
-    connect_b.pack(side="left", padx=10)
-    url_entry = tk.Entry(f1, font=("Arial", 12), border=2, bg="white", relief="groove", justify="center")
-    url_entry.pack(side="left", padx=10)
-    url_entry.insert("end", HOST_IP)
-    port_entry = tk.Entry(f1, font=("Arial", 12), border=2, bg="white", width=10, relief="groove", justify="center")
-    port_entry.pack(side="left", padx=10)
-    port_entry.insert("end", "5000")
-
-    # Row
-    f2 = tk.Frame(win, border=1, bg="white")
-    f2.pack(side="top", fill="x", expand=1, pady=10)
-    new_game_b = tk.Button(f2, text="Start single-player game", bg="peru", font=("Arial", 12), relief="groove", command=root.destroy)
-    new_game_b.pack(side="left", padx=10)
-    player_id = tk.Entry(f2, font=("Arial", 12), border=2, bg="white", width=5, relief="groove", justify="center")
-    player_id.pack(side="right", padx=10)
-    player_id.insert("end", f"{str(PLAYER_ID)}")
-    player_id_label = tk.Label(f2, text="Player Online ID", font=("Arial", 12), border=2, bg="white")
-    player_id_label.pack(side="right", padx=10)
-
-    output = tk.Text(root, height=15, width=15)
-    root.protocol("WM_DELETE_WINDOW", sys.exit)
-    root.mainloop()
+            PLAYER_ID = player_id
+        except Exception as _:
+            pass
 
 
 # START APP -> LOAD RESOURCES, SETTINGS -> GAMEPLAY
@@ -1325,7 +1284,6 @@ def load_main_menu():
 if __name__ == "__main__":
     # Online
     PLAYER_ID = 1 # Must be unique among other players on the network
-    HOST_IP = socket.gethostbyname(socket.gethostname())
     ONLINE, HOST = None, True
     THREADS_NUMBER, THREADS = 1, []
     DAMAGES = []
@@ -1334,7 +1292,7 @@ if __name__ == "__main__":
     SCALE = 32 # Height and width one tile on map
     GAME_NAME = "Adventurer's Path"
 
-    load_main_menu()
+    tryStartServer()
 
     # Colors
     RED = (255,0,0)

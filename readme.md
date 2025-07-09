@@ -2,12 +2,12 @@
 
 The player survived the storm and found himself on a small island with hostile skeletons. Help him defeat evil and find treasures.
 
-<img src="https://github.com/lestec-al/adventurer-s-path-game/raw/main/graphics/pic_game_1.png" width="375" height="225"/>  <img src="https://github.com/lestec-al/adventurer-s-path-game/raw/main/graphics/pic_game_4.png" width="375" height="225"/>
-<img src="https://github.com/lestec-al/adventurer-s-path-game/raw/main/graphics/pic_game_5.png" width="375" height="225"/>  <img src="https://github.com/lestec-al/adventurer-s-path-game/raw/main/graphics/pic_game_6.png" width="375" height="225"/>
+<img src="https://github.com/lestec-al/isometric-fantasy-game/raw/main/graphics/pic_game_1.png" width="375" height="225"/>  <img src="https://github.com/lestec-al/isometric-fantasy-game/raw/main/graphics/pic_game_4.png" width="375" height="225"/>
+<img src="https://github.com/lestec-al/isometric-fantasy-game/raw/main/graphics/pic_game_5.png" width="375" height="225"/>  <img src="https://github.com/lestec-al/isometric-fantasy-game/raw/main/graphics/pic_game_6.png" width="375" height="225"/>
 
 ## Description
 
-This is a demo project of an isometric fantasy game. One small level is ready. You can play alone or with friends over a local network.
+This is a demo project of an isometric fantasy game. Gameplay consists of world exploration, fighting NPCs, equipping and using items. One small level is ready. You can play alone or with friends over a local network.
 
 Keyboard controls:
 - wasd: move
@@ -31,7 +31,7 @@ Mechanics:
 - install Python (v3.10 or higher)
 - install PyGame, Pillow, Tkinter
 - download (and extract) or clone this repo
-- launch via command line "python game.py" in the project folder
+- launch via command line "python menu.py" in the project folder
 
 Or if you are using Windows 10, download the app from releases, extract "game.7z" and run "game.exe" inside the folder.
 
