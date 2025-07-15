@@ -1,7 +1,11 @@
+ON_ANDROID = False
+
 import pygame, random, os, time, threading, socket, json, sys
 from pygame.locals import *
 from PIL import Image
-
+if ON_ANDROID:
+    import plyer
+    from android.storage import app_storage_path # type: ignore
 
 # MAIN ASSETS
 
@@ -12,7 +16,7 @@ class Sounds():
         self.all = []
         # Add all sounds
         for file in os.listdir("sounds/"):
-            self.all.append(pygame.mixer.Sound(f"sounds/{file}"))
+            self.all.append(pygame.mixer.Sound(f"{main_path}sounds/{file}"))
 
     def play_map_sounds(self):
         if self.sound_status["nature"] == None:
@@ -68,11 +72,11 @@ class Images():
                         c_i += img_scale
                     r_i += img_scale
 
-    def add_images(self, result:list, path:str, img_scale:int):
+    def add_images(self, result:list, path:str, graph_tileset_scale:int):
         i = Image.open(path)
         width, height = i.width, i.height
-        w, h = int(width/img_scale), int(height/img_scale)
-        left, upper, right, lower = 0, 0, img_scale, img_scale
+        w, h = int(width/graph_tileset_scale), int(height/graph_tileset_scale)
+        left, upper, right, lower = 0, 0, graph_tileset_scale, graph_tileset_scale
         r_i = 0
         for _ in range(h):
             c_i = 0
@@ -80,14 +84,22 @@ class Images():
                 image = i.crop((left+c_i, upper+r_i, right+c_i, lower+r_i))
                 img = self.pil_img_to_surface(image)
                 result.append(img)
-                c_i += img_scale
-            r_i += img_scale
+                c_i += graph_tileset_scale
+            r_i += graph_tileset_scale
 
     def pil_img_to_surface(self, pil_img):
-        return pygame.image.fromstring(pil_img.tobytes(), pil_img.size, pil_img.mode).convert_alpha()
+        image_orig = pygame.image.fromstring(pil_img.tobytes(), pil_img.size, pil_img.mode)
+        return pygame.transform.scale(
+            image_orig,
+            (image_orig.get_width() * SCALE, image_orig.get_height() * SCALE)
+        ).convert_alpha()
 
     def load(self, image_path):
-        return pygame.image.load(image_path).convert_alpha()
+        image_orig = pygame.image.load(os.path.join(main_path, image_path))
+        return pygame.transform.scale(
+            image_orig,
+            (image_orig.get_width() * SCALE, image_orig.get_height() * SCALE)
+        ).convert_alpha()
 
 
 # DIFFERENT OBJECTS
@@ -115,7 +127,7 @@ class Item():
         self.name = name
         self.obj_type = obj_type
         self.image = image
-        self.map = pygame.Rect(0, 0, SCALE, SCALE)
+        self.map = pygame.Rect(0, 0, TILE_SIZE, TILE_SIZE)
 
 
 class Weapon(Item):
@@ -199,9 +211,6 @@ class Person():
         self.inventory_open = False
         self.box = None
         self.trader = None
-        self.showing_item = None
-        self.show_pos = None
-        self.show_item = False
         self.selected = {
             "head":head,
             "behind":behind,
@@ -211,7 +220,8 @@ class Person():
             "legs":legs,
             "torso":torso,
             "weapon":weapon,
-            "shield":shield}
+            "shield":shield
+        }
         self.wear = {
             "body":body,
             "head":hair,
@@ -222,16 +232,17 @@ class Person():
             "legs":None,
             "torso":None,
             "weapon":None,
-            "shield":None}
+            "shield":None
+        }
         self.hair = hair
         # Add selected items to inventory and to wearing (id -> item)
-        for i in ITEMS:
-            for k in self.selected:
-                if self.selected[k] != None and self.selected[k] == i.id:
-                    if i not in self.inventory:
-                        self.inventory.append(i)
-                    self.selected[k] = i
-                    self.wear[k] = i.anim
+        for i1 in ITEMS:
+            for s1 in self.selected:
+                if self.selected[s1] != None and self.selected[s1] == i1.id:
+                    if i1 not in self.inventory:
+                        self.inventory.append(i1)
+                    self.selected[s1] = i1
+                    self.wear[s1] = i1.anim
         self.count_armor()
 
     def count_armor(self):
@@ -437,7 +448,7 @@ class Person():
             self.sound_status["under_attack"] = False
 
     def attack(self):
-        map_weapon = pygame.Rect((self.map.x,self.map.y),(self.selected["weapon"].radius,self.selected["weapon"].radius))
+        map_weapon = pygame.Rect((self.map.x,self.map.y),(self.selected["weapon"].radius*SCALE,self.selected["weapon"].radius*SCALE))
         map_weapon.center = self.map.center
         if "up" in self.move_status:
             map_weapon.bottom = self.map.top
@@ -448,6 +459,7 @@ class Person():
         elif "right" in self.move_status:
             map_weapon.left = self.map.right
         for o in HUMAN_PERSONS+NPC_PERSONS:
+            o:Person
             if self != o:
                 if o.obj_type == "player" or o.obj_type == "online_player" or "npc" in o.obj_type and o.health > 0:
                     if map_weapon.colliderect(o.map):
@@ -456,7 +468,7 @@ class Person():
                         elif skill == "longsword" or skill == "rapier": skill = "sword"
                         wd = self.selected["weapon"].damage
                         min_damage = (int(self.skills[skill])/10)*wd if (int(self.skills[skill])/10)*wd < wd else wd
-                        randomize_damage = random.randint(min_damage, self.selected["weapon"].damage)
+                        randomize_damage = random.randint(int(min_damage), self.selected["weapon"].damage)
                         damage = randomize_damage - o.armor if randomize_damage - o.armor > 0 else 0
                         o.health -= damage
                         o.under_attack_time = time.time()
@@ -466,16 +478,16 @@ class Person():
 
     def move(self, direction:str):
         if direction == "up":
-            self.map.centery -= self.speed
+            self.map.centery -= (self.speed*SCALE)
             self.move_status = "up-go"
         elif direction == "down":
-            self.map.centery += self.speed
+            self.map.centery += (self.speed*SCALE)
             self.move_status = "down-go"
         elif direction == "left":
-            self.map.centerx -= self.speed
+            self.map.centerx -= (self.speed*SCALE)
             self.move_status = "left-go"
         elif direction == "right":
-            self.map.centerx += self.speed
+            self.map.centerx += (self.speed*SCALE)
             self.move_status = "right-go"
         # Collisions
         for s in SPRITES:
@@ -508,47 +520,7 @@ class Person():
         pygame.draw.rect(WINDOW, ORANGE, (10, 30, self.energy, 17))
         if self.attack_time != None:
             WINDOW.blit(STAT_FONT.render("!!!", True, WHITE), (10, 50, 20, 20))
-        # Inventory
-        if self.inventory_open:
-            # Draw inventory info
-            inventory_text = STAT_FONT.render(f"Player Items", True, WHITE)
-            WINDOW.blit(inventory_text, (SCREEN_WIDTH//2, 32, 50, 17))
-            # Boxes
-            if self.box != None or self.trader != None:
-                if self.box != None:
-                    text = "NPC Items" if "npc" in self.box.obj_type else "Box Items"
-                elif self.trader != None:
-                    text = "Trader Items"
-                WINDOW.blit(STAT_FONT.render(text, True, WHITE), (SCREEN_WIDTH//5, 32, 50, 17))
-            # Info about single item
-            if self.showing_item != None and self.show_pos != None:
-                show_pos1 = (self.show_pos[0]-150, self.show_pos[1]+10)
-                show_pos2 = (self.show_pos[0]-155, self.show_pos[1]+5)
-                if "weapon" in self.showing_item.obj_type:
-                    t1 = str(self.showing_item.damage)
-                    t2 = str(self.showing_item.cooldown)
-                    text = f"{t1} {t2}"
-                elif "potion" in self.showing_item.obj_type:
-                    text = str(self.showing_item.for_adding)
-                elif "coins" in self.showing_item.obj_type:
-                    text = str(self.showing_item.amount)
-                else:
-                    text = str(self.showing_item.armor)
-                text_name = self.showing_item.name
-                pygame.draw.rect(WINDOW, GREY, (show_pos2, (155, 25)))
-                WINDOW.blit(STAT_FONT.render(f"{text_name} {text}", True, WHITE), (show_pos1, (50, 17)))
-            # Damage, armor, skills
-            if self.selected["weapon"] != None:
-                weapon_damage = self.selected["weapon"].damage
-                weapon_text = STAT_FONT.render(f"Damage: {str(weapon_damage)}", True, WHITE)
-                WINDOW.blit(weapon_text, (SCREEN_WIDTH-120, SCREEN_HEIGHT//2, 50, 17))
-            armor_text = STAT_FONT.render(f"Armor: {str(self.armor)}", True, WHITE)
-            WINDOW.blit(armor_text, (SCREEN_WIDTH-120, SCREEN_HEIGHT//2+20, 50, 17))
-            WINDOW.blit(STAT_FONT.render("Skills:", True, WHITE), (SCREEN_WIDTH-120, SCREEN_HEIGHT//2+60, 50, 17))
-            sword_text = STAT_FONT.render(f"Sword: {str(int(self.skills['sword']))}", True, WHITE)
-            WINDOW.blit(sword_text, (SCREEN_WIDTH-120, SCREEN_HEIGHT//2+80, 50, 17))
-            spear_text = STAT_FONT.render(f"Spear: {str(int(self.skills['spear']))}", True, WHITE)
-            WINDOW.blit(spear_text, (SCREEN_WIDTH-120, SCREEN_HEIGHT//2+100, 50, 17))
+
 
     def keyboard(self):
         pressed = pygame.key.get_pressed()
@@ -572,8 +544,11 @@ class Person():
                     self.inventory_open = False
                 self.sound_status["box"] = True
                 self.sound_status["inventory_items"] = True
+            if pressed[pygame.K_r]:
+                time.sleep(0.5)
+                # Try to find trader nearby
                 if self.trader == None:
-                    radius = pygame.Rect((self.map.x,self.map.y),(75,75))
+                    radius = pygame.Rect((self.map.x,self.map.y),(75*SCALE,75*SCALE))
                     radius.center = self.map.center
                     for o in NPC_PERSONS:
                         if "trader" in o.obj_type and o.health > 0:
@@ -581,6 +556,23 @@ class Person():
                                 self.trader = o
                 else:
                     self.trader = None
+                # Try to find box or dead NPC nearby
+                if self.box == None:
+                    for s in SPRITES:
+                        if "npc" in s.obj_type and s.health <= 0 or s.obj_type == "box": # No online_player
+                            if self.map.top == s.map.bottom and self.map.left >= s.map.left-TILE_SIZE and self.map.right <= s.map.right+TILE_SIZE:
+                                self.box = s
+                            elif self.map.bottom == s.map.top and self.map.left >= s.map.left-TILE_SIZE and self.map.right <= s.map.right+TILE_SIZE:
+                                self.box = s
+                            elif self.map.left == s.map.right and self.map.top >= s.map.top-TILE_SIZE and self.map.bottom <= s.map.bottom+TILE_SIZE:
+                                self.box = s
+                            elif self.map.right == s.map.left and self.map.top >= s.map.top-TILE_SIZE and self.map.bottom <= s.map.bottom+TILE_SIZE:
+                                self.box = s
+                else:
+                    self.box = None
+                #
+                self.sound_status["box"] = True
+                self.sound_status["inventory_items"] = True
             if pressed[pygame.K_e]:
                 self.append_items_from_map()
         if (pressed[pygame.K_f] and self.selected["weapon"] != None and self.under_attack_time == None and
@@ -591,122 +583,70 @@ class Person():
             self.attack_time = time.time()
 
     def draw_inventory(self):
-        def calc_coins(inventory):
-            coins_objs = []
-            coins = 0
-            for i in inventory:
-                if i.obj_type == "coins":
-                    coins_objs.append(i)
-                    coins += i.amount
-            if len(coins_objs) > 1:
-                for i in coins_objs[1:]:
-                    inventory.remove(i)
-                    del i
-            if len(coins_objs) == 1:
-                coins_objs[0].amount = coins
-            if coins == 0:
-                for i in coins_objs:
-                    inventory.remove(i)
-                    del i
-
-        def draw_item(item, pos):
-            # If image doesn't exist, take from anim
-            if item.image == None:
-                item.image = IMAGES.pil_img_to_surface(IMAGES.player["walkcycle"][item.obj_type][item.anim][18])
-                image = item.image
-            else:
-                image = item.image
-            rect = image.get_rect()
-            rect.center = pos.center
-            WINDOW.blit(image, rect)
-
-        self.show_item = False
-        # Boxes
-        self.box = None
-        for s in SPRITES:
-            if "npc" in s.obj_type and s.health <= 0 or s.obj_type == "box": # No online_player
-                if self.map.top == s.map.bottom and self.map.left >= s.map.left-SCALE and self.map.right <= s.map.right+SCALE:
-                    self.box = s
-                elif self.map.bottom == s.map.top and self.map.left >= s.map.left-SCALE and self.map.right <= s.map.right+SCALE:
-                    self.box = s
-                elif self.map.left == s.map.right and self.map.top >= s.map.top-SCALE and self.map.bottom <= s.map.bottom+SCALE:
-                    self.box = s
-                elif self.map.right == s.map.left and self.map.top >= s.map.top-SCALE and self.map.bottom <= s.map.bottom+SCALE:
-                    self.box = s
-        # Draw box
-        if self.box != None or self.trader != None:
-            y_index, x_index, item_index = 1, 0, 0
-            if self.box != None:
-                inventory = self.box.inventory
-            elif self.trader != None:
-                inventory = []
-                for i in self.trader.inventory:
-                    if i not in [self.trader.selected[k] for k in self.trader.selected]:
-                        inventory.append(i)
-            for i in inventory:
-                if item_index >= 5:
-                    y_index += 1
-                    item_index = 0
-                    x_index = 0
-                y = y_index*64
-                x = x_index*64
-                item_pos = pygame.Rect((SCREEN_WIDTH//5)+x, y, 64, 64)
-                pygame.draw.rect(WINDOW, BROWN, item_pos)
-                pygame.draw.rect(WINDOW, GREY, item_pos, 1)
-                draw_item(i, item_pos)
-                x_index += 1
-                item_index += 1
-                if item_pos.collidepoint(pygame.mouse.get_pos()):
-                    self.show_item = True
-                    # Show item info
-                    self.show_pos = pygame.mouse.get_pos()
-                    self.showing_item = i
-                    if pygame.mouse.get_pressed()[2]:
-                        self.sound_status["inventory_items"] = True
-                        time.sleep(0.5)
-                        # Append items to player inventory from box
-                        if self.box != None:
-                            if len(self.inventory) <= self.capacity and i not in self.inventory:
-                                self.inventory.append(i)
-                                self.box.inventory.remove(i)
-                        # Buying items ???
-                        elif self.trader != None:
-                            if len(self.inventory) <= self.capacity and i not in self.inventory and i.obj_type != "coins":
-                                for ic in self.inventory:
-                                    if ic.obj_type == "coins":
-                                        if ic.amount >= 100:# Universal price ???
-                                            self.inventory.append(i)
-                                            self.trader.inventory.remove(i)
-                                            ic.amount -= 100
-                                            coins_found = False
-                                            for ict in self.trader.inventory:
-                                                if ict.obj_type == "coins":
-                                                    coins_found = True
-                                                    ict.amount += 100
-                                            if coins_found == False:
-                                                self.trader.inventory.append(Coins(602, "Coins", "coins", ic.image, 100))
-                            calc_coins(self.trader.inventory)
-                        calc_coins(self.inventory)
+        selected_items = [self.selected[k] for k in self.selected]
+        scaled = 42*SCALE
+        itemWH = scaled if scaled >= 110 else 110
+        if SCALE >= 1 and SCALE < 4:
+            row_len = 7
+        elif SCALE == 4:
+            row_len = 4
+        else:
+            row_len = 1
+        # Draw inventory info text
+        inventory_text = STAT_FONT.render(f"Inventory", True, WHITE)
+        WINDOW.blit(inventory_text, (itemWH*1.5, 20))
+        # Draw equipped, damage, armor info texts
+        if self.selected["weapon"] != None:
+            weapon_damage = self.selected["weapon"].damage
+        else:
+            weapon_damage = 0
+        armor_stat = str(self.armor)[0:3] if len(str(self.armor)) > 3 else str(self.armor)
+        sword_text = int(self.skills['sword'])
+        spear_text = int(self.skills['spear'])
+        equipped_text = f"Equipped (weapon damage:{weapon_damage}, armor:{armor_stat}) Skills (sword:{sword_text}, spear:{spear_text})"
+        WINDOW.blit(STAT_FONT.render(equipped_text, True, WHITE), (SCREEN_WIDTH-SCREEN_WIDTH//3, 20))
+        # Draw empty grid for equipped items
+        y_index, x_index, item_index = 0, 0, 0
+        for i in range(9):
+            if x_index >= 3:
+                y_index += 1
+                x_index = 0
+            x = x_index*itemWH
+            y = y_index*itemWH
+            item_pos = pygame.Rect(SCREEN_WIDTH-itemWH-x-10, y+50, itemWH, itemWH)
+            pygame.draw.rect(WINDOW, GREY, item_pos, 1)
+            x_index += 1
         # Draw inventory
-        y_index, x_index, item_index = 1, 0, 0
+        y_index, x_index, item_index = 0, 0, 0
         for i in self.inventory:
             # Draw inventory item
-            if i not in [self.selected[k] for k in self.selected]:
-                if item_index >= 5:
+            if i not in selected_items:
+                # Check if the first row is already taken & set to second
+                if item_index >= row_len:
                     y_index += 1
                     item_index = 0
                     x_index = 0
-                y, x = y_index*64, x_index*64
-                item_pos = pygame.Rect((SCREEN_WIDTH//2)+x, y, 64, 64)
+                y, x = y_index*itemWH, x_index*itemWH
+                item_pos = pygame.Rect(x+10, y+50, itemWH, itemWH)
+                # Draw item
                 pygame.draw.rect(WINDOW, BROWN, item_pos)
                 pygame.draw.rect(WINDOW, GREY, item_pos, 1)
-                draw_item(i, item_pos)               
+                self.draw_item(i, item_pos)
+                # Draw info about single item
+                if "weapon" in i.obj_type:
+                    t1 = str(i.damage)
+                    t2 = str(i.cooldown)
+                    text = f"{t1}, {t2}"
+                elif "potion" in i.obj_type:
+                    text = str(i.for_adding)
+                elif "coins" in i.obj_type:
+                    text = str(i.amount)
+                else:
+                    text = str(i.armor)
+                WINDOW.blit(STAT_FONT.render(f"{i.name}", True, WHITE), pygame.Rect(x+15, y+55, itemWH, itemWH))
+                WINDOW.blit(STAT_FONT.render(text, True, WHITE), pygame.Rect(x+15, y+58+STAT_FONT.get_height(), itemWH, itemWH))
                 # Use items
                 if item_pos.collidepoint(pygame.mouse.get_pos()):
-                    self.show_item = True
-                    # Show item info
-                    self.show_pos = pygame.mouse.get_pos()
-                    self.showing_item = i
                     # Use items
                     if pygame.mouse.get_pressed()[0]:
                         time.sleep(0.5)
@@ -727,11 +667,181 @@ class Person():
                     if pygame.mouse.get_pressed()[2]:
                         self.sound_status["inventory_items"] = True
                         time.sleep(0.5)
-                        if self.box != None:# Add item to the box
+                        # Remove item to map
+                        collide = False
+                        for s in SPRITES:
+                            if s.map.collidepoint(self.map.x-TILE_SIZE, self.map.y-TILE_SIZE):
+                                collide = True
+                        if collide == False:
+                            i.map.x, i.map.y = self.map.x-TILE_SIZE, self.map.y-TILE_SIZE
+                            self.inventory.remove(i)
+                        self.calc_coins(self.inventory)
+                x_index += 1
+                item_index += 1
+            # Draw selected item
+            else:
+                # First row
+                if i.obj_type == "weapon":
+                    selected_pos = pygame.Rect(SCREEN_WIDTH-itemWH-10, 50, itemWH, itemWH)
+                elif i.obj_type == "shield":
+                    selected_pos = pygame.Rect(SCREEN_WIDTH-(itemWH*2)-10, 50, itemWH, itemWH)
+                elif i.obj_type == "behind":
+                    selected_pos = pygame.Rect(SCREEN_WIDTH-(itemWH*3)-10, 50, itemWH, itemWH)
+                # Second row
+                elif i.obj_type == "hands":
+                    selected_pos = pygame.Rect(SCREEN_WIDTH-itemWH-10, 50+itemWH, itemWH, itemWH)
+                elif i.obj_type == "torso":
+                    selected_pos = pygame.Rect(SCREEN_WIDTH-(itemWH*2)-10, 50+itemWH, itemWH, itemWH)
+                elif i.obj_type == "head":
+                    selected_pos = pygame.Rect(SCREEN_WIDTH-(itemWH*3)-10, 50+itemWH, itemWH, itemWH)
+                # Thrid row
+                elif i.obj_type == "feet":
+                    selected_pos = pygame.Rect(SCREEN_WIDTH-itemWH-10, 50+itemWH*2, itemWH, itemWH)
+                elif i.obj_type == "legs":
+                    selected_pos = pygame.Rect(SCREEN_WIDTH-(itemWH*2)-10, 50+itemWH*2, itemWH, itemWH)
+                elif i.obj_type == "belt":
+                    selected_pos = pygame.Rect(SCREEN_WIDTH-(itemWH*3)-10, 50+itemWH*2, itemWH, itemWH)
+                pygame.draw.rect(WINDOW, BROWN, selected_pos)
+                pygame.draw.rect(WINDOW, GREY, selected_pos, 1)
+                self.draw_item(i, selected_pos)
+                if selected_pos.collidepoint(pygame.mouse.get_pos()):
+                    # Move items from selected
+                    if pygame.mouse.get_pressed()[0]:
+                        self.sound_status["inventory_items"] = True
+                        time.sleep(0.5)
+                        for k in self.selected:
+                            if i == self.selected[k]:
+                                if k == "head" and self.hair != None:
+                                    self.selected[k] = None
+                                    self.wear[k] = self.hair
+                                else:
+                                    self.selected[k] = None
+                                    self.wear[k] = None
+                                self.count_armor()
+
+    def draw_sharing(self):
+        scaled = 42*SCALE
+        itemWH = scaled if scaled >= 110 else 110
+        if SCALE >= 1 and SCALE < 4:
+            row_len = 5
+        elif SCALE == 4:
+            row_len = 4
+        else:
+            row_len = 1
+        # Draw box or dead NPC or Trader info
+        if self.box != None:
+            text = "NPC Items" if "npc" in self.box.obj_type else "Box Items"
+        elif self.trader != None:
+            text = "Trader Items"
+        WINDOW.blit(STAT_FONT.render(text, True, WHITE), (SCREEN_WIDTH//5, 20))
+        equipped_text = f"Inventory"
+        WINDOW.blit(STAT_FONT.render(equipped_text, True, WHITE), (SCREEN_WIDTH-SCREEN_WIDTH//3, 20))
+        # Draw box or dead NPC or Trader
+        if self.box != None:
+            inventory = self.box.inventory
+        elif self.trader != None:
+            inventory = []
+            trader_selected = [self.trader.selected[k] for k in self.trader.selected]
+            for i in self.trader.inventory:
+                if i not in trader_selected:
+                    inventory.append(i)
+        y_index, x_index, item_index = 0, 0, 0
+        for i in inventory:
+            # Check if the first row is already taken & set to second
+            if item_index >= row_len:
+                y_index += 1
+                item_index = 0
+                x_index = 0
+            y, x = y_index*itemWH, x_index*itemWH
+            item_pos = pygame.Rect(x+10, y+50, itemWH, itemWH)
+            pygame.draw.rect(WINDOW, BROWN, item_pos)
+            pygame.draw.rect(WINDOW, GREY, item_pos, 1)
+            self.draw_item(i, item_pos)
+            # Draw info about single item
+            if "weapon" in i.obj_type:
+                t1 = str(i.damage)
+                t2 = str(i.cooldown)
+                text = f"{t1}, {t2}"
+            elif "potion" in i.obj_type:
+                text = str(i.for_adding)
+            elif "coins" in i.obj_type:
+                text = str(i.amount)
+            else:
+                text = str(i.armor)
+            WINDOW.blit(STAT_FONT.render(f"{i.name}", True, WHITE), pygame.Rect(x+15, y+55, itemWH, itemWH))
+            WINDOW.blit(STAT_FONT.render(text, True, WHITE), pygame.Rect(x+15, y+58+STAT_FONT.get_height(), itemWH, itemWH))
+            x_index += 1
+            item_index += 1
+            if item_pos.collidepoint(pygame.mouse.get_pos()):
+                if pygame.mouse.get_pressed()[0]:
+                    self.sound_status["inventory_items"] = True
+                    time.sleep(0.5)
+                    # Append items to player inventory from box
+                    if self.box != None:
+                        if len(self.inventory) <= self.capacity and i not in self.inventory:
+                            self.inventory.append(i)
+                            self.box.inventory.remove(i)
+                    # Buying items ???
+                    elif self.trader != None:
+                        if len(self.inventory) <= self.capacity and i not in self.inventory and i.obj_type != "coins":
+                            for ic in self.inventory:
+                                if ic.obj_type == "coins":
+                                    if ic.amount >= 100:# Universal price ???
+                                        self.inventory.append(i)
+                                        self.trader.inventory.remove(i)
+                                        ic.amount -= 100
+                                        coins_found = False
+                                        for ict in self.trader.inventory:
+                                            if ict.obj_type == "coins":
+                                                coins_found = True
+                                                ict.amount += 100
+                                        if coins_found == False:
+                                            self.trader.inventory.append(Coins(602, "Coins", "coins", ic.image, 100))
+                        self.calc_coins(self.trader.inventory)
+                    self.calc_coins(self.inventory)
+        #
+        selected_items = [self.selected[k] for k in self.selected]
+        # Draw player inventory
+        y_index, x_index, item_index = 0, 0, 0
+        for i in self.inventory:
+            # Draw inventory item
+            if i not in selected_items:
+                # Check if the first row is already taken & set to second
+                if x_index >= row_len:
+                    y_index += 1
+                    x_index = 0
+                x = x_index*itemWH
+                y = y_index*itemWH
+                item_pos = pygame.Rect(SCREEN_WIDTH-itemWH-x-10, y+50, itemWH, itemWH)
+                pygame.draw.rect(WINDOW, BROWN, item_pos)
+                pygame.draw.rect(WINDOW, GREY, item_pos, 1)
+                self.draw_item(i, item_pos)
+                # Draw info about single item
+                if "weapon" in i.obj_type:
+                    t1 = str(i.damage)
+                    t2 = str(i.cooldown)
+                    text = f"{t1}, {t2}"
+                elif "potion" in i.obj_type:
+                    text = str(i.for_adding)
+                elif "coins" in i.obj_type:
+                    text = str(i.amount)
+                else:
+                    text = str(i.armor)
+                WINDOW.blit(STAT_FONT.render(f"{i.name}", True, WHITE), pygame.Rect(SCREEN_WIDTH-itemWH-x-5, y+55, itemWH, itemWH))
+                WINDOW.blit(STAT_FONT.render(text, True, WHITE), pygame.Rect(SCREEN_WIDTH-itemWH-x-5, y+58+STAT_FONT.get_height(), itemWH, itemWH))
+                # Use items
+                if item_pos.collidepoint(pygame.mouse.get_pos()):
+                    # Move items from player inventory
+                    if pygame.mouse.get_pressed()[0]:
+                        self.sound_status["inventory_items"] = True
+                        time.sleep(0.5)
+                        if self.box != None:
+                            # Add item to the box
                             if len(self.box.inventory) <= self.box.capacity and i not in self.box.inventory:
                                 self.inventory.remove(i)
                                 self.box.inventory.append(i)
-                        elif self.trader != None:# Sell item to trader ???
+                        elif self.trader != None:
+                            # Sell item to trader ???
                             if len(self.trader.inventory) <= self.trader.capacity and i not in self.trader.inventory:
                                 if i.obj_type != "coins":
                                     for ic in self.trader.inventory:
@@ -747,68 +857,47 @@ class Person():
                                                         ict.amount += 100
                                                 if coins_found == False:
                                                     self.inventory.append(Coins(602, "Coins", "coins", ic.image, 100))
-                            calc_coins(self.trader.inventory)
-                        else:# Remove item to map
-                            collide = False
-                            for s in SPRITES:
-                                if s.map.collidepoint(self.map.x-SCALE, self.map.y-SCALE):
-                                    collide = True
-                            if collide == False:
-                                i.map.x, i.map.y = self.map.x-SCALE, self.map.y-SCALE
-                                self.inventory.remove(i)
-                        calc_coins(self.inventory)
+                        self.calc_coins(self.inventory)
                 x_index += 1
                 item_index += 1
-            # Draw selected item
-            else:
-                if i.obj_type == "weapon":
-                    selected_pos = pygame.Rect(SCREEN_WIDTH-64,64,64,64)
-                elif i.obj_type == "behind":
-                    selected_pos = pygame.Rect(SCREEN_WIDTH-64*2,64*2,64,64)
-                elif i.obj_type == "head":
-                    selected_pos = pygame.Rect(SCREEN_WIDTH-64,64*2,64,64)
-                elif i.obj_type == "torso":
-                    selected_pos = pygame.Rect(SCREEN_WIDTH-64,64*3,64,64)
-                elif i.obj_type == "hands":
-                    selected_pos = pygame.Rect(SCREEN_WIDTH-64*3,64*3,64,64)
-                elif i.obj_type == "shield":
-                    selected_pos = pygame.Rect(SCREEN_WIDTH-64*3,64*4,64,64)
-                elif i.obj_type == "belt":
-                    selected_pos = pygame.Rect(SCREEN_WIDTH-64*2,64*3,64,64)
-                elif i.obj_type == "legs":
-                    selected_pos = pygame.Rect(SCREEN_WIDTH-64,64*4,64,64)
-                elif i.obj_type == "feet":
-                    selected_pos = pygame.Rect(SCREEN_WIDTH-64*2,64*4,64,64)
-                pygame.draw.rect(WINDOW, BROWN, selected_pos)
-                pygame.draw.rect(WINDOW, GREY, selected_pos, 1)
-                draw_item(i, selected_pos)
-                if selected_pos.collidepoint(pygame.mouse.get_pos()):
-                    self.show_item = True
-                    # Show item info
-                    self.show_pos = pygame.mouse.get_pos()
-                    self.showing_item = i
-                    # Move items from selected
-                    if pygame.mouse.get_pressed()[0]:
-                        self.sound_status["inventory_items"] = True
-                        time.sleep(0.5)
-                        for k in self.selected:
-                            if i == self.selected[k]:
-                                if k == "head" and self.hair != None:
-                                    self.selected[k] = None
-                                    self.wear[k] = self.hair
-                                else:
-                                    self.selected[k] = None
-                                    self.wear[k] = None
-                                self.count_armor()
 
-    def clean_showing_item(self):
-        if not self.inventory_open and self.box != None:
-            self.box = None
-        if self.show_item == False:
-            if self.showing_item != None:
-                self.showing_item = None
-            if self.show_pos != None:
-                self.show_pos = None
+    def calc_coins(self, inventory):
+        coins_objs = []
+        coins = 0
+        for i in inventory:
+            if i.obj_type == "coins":
+                coins_objs.append(i)
+                coins += i.amount
+        if len(coins_objs) > 1:
+            for i in coins_objs[1:]:
+                inventory.remove(i)
+                del i
+        if len(coins_objs) == 1:
+            coins_objs[0].amount = coins
+        if coins == 0:
+            for i in coins_objs:
+                inventory.remove(i)
+                del i
+
+    def draw_item(self, item, pos):
+        # If image doesn't exist, take from anim
+        if item.image == None:
+            if item.obj_type == "shield" or item.obj_type == "behind":
+                img = IMAGES.pil_img_to_surface(IMAGES.player["walkcycle"][item.obj_type][item.anim][10])
+            else:
+                img = IMAGES.pil_img_to_surface(IMAGES.player["walkcycle"][item.obj_type][item.anim][18])
+            isCrop = item.obj_type == "behind" or item.obj_type == "hands" or item.obj_type == "feet" or item.obj_type == "legs" or item.obj_type == "belt"
+            if (isCrop):
+                h = img.get_height()//2
+                item.image = img.subsurface(pygame.Rect(0, h, img.get_width(), h))
+            else:
+                item.image = img
+            image = item.image
+        else:
+            image = item.image
+        rect = image.get_rect()
+        rect.center = pos.center
+        WINDOW.blit(image, rect)
 
     def camera(self):
         right_border = WORLD_MAP_RECT.width - SCREEN_WIDTH
@@ -841,8 +930,8 @@ class Person():
     # Methods only for NPCs
 
     def draw_npc_stats(self):
-        health_rect = pygame.Rect(0, 0, self.health_bar_width/5, SCALE/10)
-        health_rect_i = pygame.Rect(0, 0, self.health/5, SCALE/10)
+        health_rect = pygame.Rect(0, 0, self.health_bar_width*SCALE/5, TILE_SIZE/10)
+        health_rect_i = pygame.Rect(0, 0, self.health*SCALE/5, TILE_SIZE/10)
         health_rect.center = (self.map.centerx-PLAYER.camera_x, self.map.y-32-PLAYER.camera_y)
         health_rect_i.center = (self.map.centerx-PLAYER.camera_x, self.map.y-32-PLAYER.camera_y)
         pygame.draw.rect(WINDOW, RED, health_rect, 1)
@@ -851,9 +940,9 @@ class Person():
     def draw_npc_dialogs(self):
         if self.health > 0 and PLAYER.health > 0 and self.attack_time == None and self.under_attack_time == None:
             x_distance, y_distance, _ = self.calc_distance(person_map=PLAYER.map, x=self.map.centerx, y=self.map.centery)
-            if x_distance < 40 and y_distance < 40:
+            if x_distance < 40*SCALE and y_distance < 40*SCALE:
                 # Change move status on player direction when player in radius
-                test = pygame.Rect((self.map.x, self.map.y),(40, 40))
+                test = pygame.Rect((self.map.x, self.map.y),(40*SCALE, 40*SCALE))
                 test.center = self.map.center
                 for status in ["up","down","left","right"]:
                     if "up" in status:
@@ -875,7 +964,7 @@ class Person():
     def npc_move_attack(self):
         if self.health > 0 and self.attack_time == None and self.under_attack_time == None:
             # NPC seen radius
-            seen_radius = pygame.Rect((0,0),(300,300))
+            seen_radius = pygame.Rect((0,0),(300*SCALE,300*SCALE))
             seen_radius.center = (self.map.centerx, self.map.centery)
             # Specify enemies for NPC and calculate distance to them
             distances = []
@@ -891,8 +980,8 @@ class Person():
                 player = distances[0][0]
 
                 # When NPC close to the player
-                if (distances[0][1] < self.selected["weapon"].radius and distances[0][2] < 10 or
-                    distances[0][2] < self.selected["weapon"].radius and distances[0][1] < 10):
+                if (distances[0][1] < self.selected["weapon"].radius*SCALE and distances[0][2] < 10*SCALE or
+                    distances[0][2] < self.selected["weapon"].radius*SCALE and distances[0][1] < 10*SCALE):
                     # Stop anim
                     if "go" in self.move_status:
                         self.move_status = self.move_status[:-3]
@@ -943,13 +1032,13 @@ class Person():
                                 if "right" in possible_moves:
                                     possible_moves.pop("right")
                     if "up" in possible_moves:
-                        possible_moves["up"] = self.calc_distance(person_map=player.map, y=self.map.centery-self.speed)
+                        possible_moves["up"] = self.calc_distance(person_map=player.map, y=self.map.centery-(self.speed*SCALE))
                     if "down" in possible_moves:
-                        possible_moves["down"] = self.calc_distance(person_map=player.map, y=self.map.centery+self.speed)
+                        possible_moves["down"] = self.calc_distance(person_map=player.map, y=self.map.centery+(self.speed*SCALE))
                     if "left" in possible_moves:
-                        possible_moves["left"] = self.calc_distance(person_map=player.map, x=self.map.centerx-self.speed)
+                        possible_moves["left"] = self.calc_distance(person_map=player.map, x=self.map.centerx-(self.speed*SCALE))
                     if "right" in possible_moves:
-                        possible_moves["right"] = self.calc_distance(person_map=player.map, x=self.map.centerx+self.speed)
+                        possible_moves["right"] = self.calc_distance(person_map=player.map, x=self.map.centerx+(self.speed*SCALE))
 
                     # Moving
                     if self.movement == None:
@@ -994,7 +1083,7 @@ class Person():
                             if i in possible_moves:
                                 if self.movement[i] >= 0:
                                     self.move(i)
-                                    self.movement[i] -= self.speed
+                                    self.movement[i] -= (self.speed*SCALE)
                                 if self.movement[i] <= 0:
                                     self.movement = None
                                 else: break
@@ -1148,7 +1237,7 @@ class OnlineUpdateThread(threading.Thread):
                     new = create_person("player")
                     new.obj_type = "online_player"
                     new.id = d["player_id"]
-                    new.map = pygame.Rect(d["map_x"], d["map_y"], SCALE/2, SCALE/2)
+                    new.map = pygame.Rect(d["map_x"], d["map_y"], TILE_SIZE/2, TILE_SIZE/2)
                     new.wear = d["wear"]
                     new.armor = d["armor"]
                     update_person_info(new, d)
@@ -1207,7 +1296,7 @@ def create_item_copy(item):
     return new_id, c_item
 
 
-def create_person(person_type:str):
+def create_person(person_type:str) -> Person:
     for i1 in PERSONS_STATS:
         if i1["obj_type"] == person_type:
             i = i1
@@ -1244,18 +1333,16 @@ def create_person(person_type:str):
     SPRITES.append(person)
     return person
 
-def tryStartServer():
-    """Create or connect to a server. option = 'create', 'connect', 'local'"""
 
+def trySetupMultiplayer():
+    """Gets data from passed arguments & trying to setup multiplayer"""
     if len(sys.argv) <= 1:
         print("No arguments were given")
     else:
         for arg in sys.argv:
             print("Passed arg: "+arg)
-        
         try:
-            global ONLINE, HOST, PLAYER_ID, THREADS_NUMBER
-
+            global ONLINE, HOST, PLAYER_ID, THREADS_NUMBER, SCREEN_WIDTH, SCREEN_HEIGHT, SCALE
             option = sys.argv[1]
             host_ip = sys.argv[2]
             port_server = int(sys.argv[3])
@@ -1263,6 +1350,9 @@ def tryStartServer():
             url = sys.argv[5]
             port_connect = int(sys.argv[6])
             player_id = int(sys.argv[7])
+            SCREEN_WIDTH = int(sys.argv[8])
+            SCREEN_HEIGHT = int(sys.argv[9])
+            SCALE = int(sys.argv[10])
 
             if option == "create":
                 ONLINE = socket.socket()
@@ -1280,7 +1370,6 @@ def tryStartServer():
 
 
 # START APP -> LOAD RESOURCES, SETTINGS -> GAMEPLAY
-
 if __name__ == "__main__":
     # Online
     PLAYER_ID = 1 # Must be unique among other players on the network
@@ -1288,11 +1377,19 @@ if __name__ == "__main__":
     THREADS_NUMBER, THREADS = 1, []
     DAMAGES = []
 
-    SCREEN_WIDTH, SCREEN_HEIGHT = 1200, 720
-    SCALE = 32 # Height and width one tile on map
-    GAME_NAME = "Adventurer's Path"
+    # Visual
+    SCREEN_WIDTH, SCREEN_HEIGHT = 1500, 750
+    SCALE = 4 # 1..4
+    game_name = "Adventurer's Path"
 
-    tryStartServer()
+    if ON_ANDROID:
+        main_path = f"{app_storage_path()}/app/"
+    else:
+        trySetupMultiplayer()
+        main_path = ""
+
+    # Height and width one tile on map multiplied by scale
+    TILE_SIZE = 32 * SCALE
 
     # Colors
     RED = (255,0,0)
@@ -1303,25 +1400,29 @@ if __name__ == "__main__":
 
     # Create pygame screen
     pygame.init()
-    pygame.display.set_icon(pygame.image.load("graphics/sword.png"))
+    pygame.display.set_icon(pygame.image.load(os.path.join(f"{main_path}graphics", "sword.png")))
     WINDOW = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), vsync=1)
-    pygame.display.set_caption(GAME_NAME)
+    pygame.display.set_caption(game_name)
     CLOCK = pygame.time.Clock()
 
     # Load assets for map, objects
     MESSAGE_FONT = pygame.font.Font("freesansbold.ttf", 30)
     STAT_FONT = pygame.font.Font("freesansbold.ttf", 15)
-    WORLD_MAP_IMG = pygame.image.load("graphics/map/world_map.png").convert()
+    world_map_orig = pygame.image.load(f"{main_path}graphics/map/world_map.png")
+    WORLD_MAP_IMG = pygame.transform.scale(
+        world_map_orig,
+        (world_map_orig.get_width() * SCALE, world_map_orig.get_height() * SCALE)
+    ).convert()
     WORLD_MAP_RECT = WORLD_MAP_IMG.get_rect()
     SOUNDS, IMAGES = Sounds(), Images()
     ITEMS, SPRITES, TREETOPS, DEAD_NPCS = [], [], [], []
-    ITEM_IMG = IMAGES.load("graphics/item.png")
+    ITEM_IMG = IMAGES.load(f"{main_path}graphics/item.png")
     HUMAN_PERSONS, NPC_PERSONS = [], []
 
     # Stats for object creation
     PERSONS_STATS = [
         {"obj_type":"player", "health":100, "speed":2, "body":'body_male.png', "hair":"head_hair_blonde.png", "sword_skill":1, "spear_skill":1,
-        "head":None, "weapon":2, "torso":11, "hands":None, "legs":16, "belt":19, "feet":21, "behind":None, "shield":None, "inventory":[25,26,27]}, # Numbers point to items ids below
+        "head":None, "weapon":2, "torso":11, "hands":None, "legs":16, "belt":19, "feet":21, "behind":None, "shield":None, "inventory":[1,3,4,7,14,15,17,20,21,23,24,25,27]}, # Numbers point to items ids below
 
         {"obj_type":"enemy", "health":50, "speed":1, "body":'body_skeleton.png', "hair":None, "sword_skill":1, "spear_skill":1,
         "head":None, "weapon":0, "torso":None, "hands":None, "legs":None, "belt":None, "feet":None, "behind":None, "shield":None, "inventory":[27]}, # Numbers point to items ids below
@@ -1401,27 +1502,27 @@ if __name__ == "__main__":
         with open(file_path) as file:
             for y_index,row in enumerate(file):
                 row = eval(row)
-                y = y_index*SCALE
+                y = y_index*TILE_SIZE
                 for x_index,i in enumerate(row):
-                    x = x_index*SCALE
+                    x = x_index*TILE_SIZE
                     if "world_map_borders" in file.name:
                         if i == 0:
-                            w = Object(id=0, map=pygame.Rect(x, y, SCALE, SCALE), obj_type="border")
+                            w = Object(id=0, map=pygame.Rect(x, y, TILE_SIZE, TILE_SIZE), obj_type="border")
                             SPRITES.append(w)
                     elif "world_map_trees" in file.name:
                         if i != -1:
                             if i in [202,203,250,251,253,254]:
-                                t = Object(id=i, map=pygame.Rect(x, y, SCALE, SCALE-10), obj_type="tree")
+                                t = Object(id=i, map=pygame.Rect(x, y, TILE_SIZE, TILE_SIZE-10), obj_type="tree")
                                 t.image = IMAGES.trees[i]
                                 SPRITES.append(t)
                             else:
-                                t = Object(id=i, map=pygame.Rect(x, y, SCALE, SCALE), obj_type="tree_up")
+                                t = Object(id=i, map=pygame.Rect(x, y, TILE_SIZE, TILE_SIZE), obj_type="tree_up")
                                 t.image = IMAGES.trees[i]
                                 TREETOPS.append(t)
                     elif "world_map_obj" in file.name:
                         if i == 1:
                             PLAYER = create_person("player")
-                            PLAYER.map = pygame.Rect(x, y, SCALE/2, SCALE/2)
+                            PLAYER.map = pygame.Rect(x, y, TILE_SIZE/2, TILE_SIZE/2)
                         elif i == 2:
                             ri = random.randint(0,len(ITEMS)-1)
                             item = ITEMS[ri]
@@ -1432,16 +1533,16 @@ if __name__ == "__main__":
                                 item.map.x, item.map.y = x, y
                         elif i == 3:
                             enemy = create_person("enemy")
-                            enemy.map = pygame.Rect(x, y, SCALE/2, SCALE/2)
+                            enemy.map = pygame.Rect(x, y, TILE_SIZE/2, TILE_SIZE/2)
                         elif i == 4:
                             for s in created_boxes:
                                 if s.map == None:
-                                    s.map = pygame.Rect(x, y, SCALE, SCALE)
+                                    s.map = pygame.Rect(x, y, TILE_SIZE, TILE_SIZE)
                                     s.map.inflate_ip(0,-10)
                                     SPRITES.append(s)
                         elif i == 5:
                             trader = create_person("trader")
-                            trader.map = pygame.Rect(x, y, SCALE/2, SCALE/2)
+                            trader.map = pygame.Rect(x, y, TILE_SIZE/2, TILE_SIZE/2)
                             trader.capacity = 30
 
     # On host - create threads for other players. On client - only one thread
@@ -1451,18 +1552,50 @@ if __name__ == "__main__":
             t.start()
             THREADS.append(t)
 
+    # Controlls on moblie
+    if ON_ANDROID:
+        mobile_controls = False
+        xG_init, yG_init = None, None
+        try:
+            plyer.accelerometer.enable()
+            mobile_controls = True
+        except Exception as e:
+            print(f"Accelerometer not available {e}")
 
     # GAMEPLAY
     while True:
         for event in pygame.event.get():
-            if event.type == QUIT:
+            if event.type == pygame.QUIT:
                 exit_game()
+
+        # Controlls on moblie
+        if ON_ANDROID and mobile_controls:
+            try:
+                xG, yG, zG = plyer.accelerometer.acceleration
+
+                if xG_init == None:
+                    xG_init = xG
+                if yG_init == None:
+                    yG_init = yG
+
+                if yG > yG_init + 1:
+                    PLAYER.move("down")
+                elif yG < yG_init - 1:
+                    PLAYER.move("up")
+                elif xG > xG_init + 1:
+                    PLAYER.move("left")
+                elif xG < xG_init - 1:
+                    PLAYER.move("right")
+            except Exception as e:
+                # print(f"Error: {e}")
+                pass
 
         SOUNDS.play_map_sounds()
         WINDOW.blit(WORLD_MAP_IMG, (0-PLAYER.camera_x, 0-PLAYER.camera_y)) # Draw map
 
         # Draw objects
         for d in DEAD_NPCS:
+            d:Person
             d.draw_person()
         for i in ITEMS:
             if i not in PLAYER.inventory and i.map.x != 0:
@@ -1486,6 +1619,7 @@ if __name__ == "__main__":
 
         # NPCs
         for s in NPC_PERSONS:
+            s:Person
             if s.health > 0:
                 s.stats_restoration()
                 s.draw_npc_stats()
@@ -1499,10 +1633,11 @@ if __name__ == "__main__":
 
         # Player
         if PLAYER.health > 0:
-            PLAYER.clean_showing_item()
             PLAYER.keyboard()
             if PLAYER.inventory_open:
                 PLAYER.draw_inventory()
+            if PLAYER.box != None or PLAYER.trader != None:
+                PLAYER.draw_sharing()
             PLAYER.draw_player_stats()
             PLAYER.stats_restoration()
             PLAYER.camera()
