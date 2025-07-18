@@ -32,17 +32,17 @@ The player survived the storm and found himself on a small island with hostile s
 
 ## Installation & running
 See releases and pick from them. Or for direct running the code:
-- install Python (v3.10 or higher).
-- install frameworks from "requirements.txt" (it is advised to create virtual environment and install there).
-- download (and extract) or clone this repo.
-- launch via command line "python menu.py" in the project folder.
+- Install Python (v3.10 or higher).
+- Install frameworks from "requirements.txt" (it is advised to create virtual environment and install there).
+- Download (and extract) or clone this repo.
+- Launch via command line "python menu.py" in the project folder.
 
 ## The project used
-- the map was created using the level editor "Tiled" - https://www.mapeditor.org
-- character sprites - https://opengameart.org/content/character-animations-clothes-armor-weapons-skeleton-enemy-combat-dummy
-- world map graphics - https://opengameart.org/content/2d-lost-garden-tileset-transition-to-jetrels-wood-tileset
-- some items icons - http://dycha.net
-- box icons - https://opengameart.org/content/jrpg-chests-16-32-64-and-128px-squared
-- some sounds - https://darkworldaudio.itch.io/sound-effects-survival-i
-- forest sound - https://opengameart.org/content/forest-ambience
-- beach waves sound - https://opengameart.org/content/beach-ocean-waves
+- The map was created using the level editor "Tiled" - https://www.mapeditor.org
+- Character sprites - https://opengameart.org/content/character-animations-clothes-armor-weapons-skeleton-enemy-combat-dummy
+- World map graphics - https://opengameart.org/content/2d-lost-garden-tileset-transition-to-jetrels-wood-tileset
+- Some items icons - http://dycha.net
+- Box icons - https://opengameart.org/content/jrpg-chests-16-32-64-and-128px-squared
+- Some sounds - https://darkworldaudio.itch.io/sound-effects-survival-i
+- Forest sound - https://opengameart.org/content/forest-ambience
+- Beach waves sound - https://opengameart.org/content/beach-ocean-waves
