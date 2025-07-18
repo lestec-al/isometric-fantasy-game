@@ -1,13 +1,12 @@
-import socket, sys, tkinter as tk, os, subprocess, threading
+import socket, sys, tkinter as tk, os
 from pathlib import Path
-
 
 VENV_FOLDER_NAME = ".venv"
 GAME_NAME = "Adventurer's Path"
 HOST_IP = socket.gethostbyname(socket.gethostname())
 
 
-def startGame(option: str):
+def start_game(option: str):
     """Options = 'create' or 'connect'"""
     try:
         port_server = int(port_server_entry.get())
@@ -15,8 +14,6 @@ def startGame(option: str):
         url = url_entry.get()
         port_connect = int(port_entry.get())
         player_id_number = int(player_id.get())
-        screen_width_number = int(screen_width.get())
-        screen_height_number = int(screen_height.get())
         scale_number = int(scale.get())
 
         root.destroy()
@@ -26,7 +23,6 @@ def startGame(option: str):
         venv_path = Path(base_dir, VENV_FOLDER_NAME)
         if venv_path.exists():
             if os.name == "nt":
-                env_command = f"{venv_path}\\Scripts\\python.exe"
                 final_command = f"{venv_path}\\Scripts\\python.exe {base_dir}/game.py"
             else:
                 env_command = f"source {venv_path}/bin/activate"
@@ -34,7 +30,7 @@ def startGame(option: str):
         else:
             final_command = f"python {base_dir}/game.py"
         
-        final_command = f"{final_command} {option} {HOST_IP} {port_server} {players} {url} {port_connect} {player_id_number} {screen_width_number} {screen_height_number} {scale_number}"
+        final_command = f"{final_command} {option} {HOST_IP} {port_server} {players} {url} {port_connect} {player_id_number} {scale_number}"
 
         # Run command
         os.system(final_command)
@@ -57,39 +53,34 @@ if __name__ == "__main__":
     # Row
     f0 = tk.Frame(win, border=1, bg="white")
     f0.pack(side="top", fill="x", expand=1, pady=10)
-    screen_width_label = tk.Label(f0, text="Screen Width:", font=("Arial", 12), border=2, bg="white")
-    screen_width_label.pack(side="left", padx=10)
-    screen_width = tk.Entry(f0, font=("Arial", 12), border=2, bg="white", width=5, relief="groove", justify="center")
-    screen_width.pack(side="left", padx=10)
-    screen_width.insert("end", "1200")
-    screen_height_label = tk.Label(f0, text="Screen Height:", font=("Arial", 12), border=2, bg="white")
-    screen_height_label.pack(side="left", padx=10)
-    screen_height = tk.Entry(f0, font=("Arial", 12), border=2, bg="white", width=5, relief="groove", justify="center")
-    screen_height.pack(side="left", padx=10)
-    screen_height.insert("end", "720")
-    scale_label = tk.Label(f0, text="Scale:", font=("Arial", 12), border=2, bg="white")
-    scale_label.pack(side="left", padx=10)
+    scale_label = tk.Label(f0, text="Textures scale:", font=("Arial", 12), border=2, bg="white")
+    scale_label.pack(side="left", padx=(10, 0))
     scale = tk.Entry(f0, font=("Arial", 12), border=2, bg="white", width=5, relief="groove", justify="center")
-    scale.pack(side="left", padx=10)
-    scale.insert("end", "1")
+    scale.pack(side="left", padx=(0, 10))
+    scale.insert("end", "2")
+    player_id = tk.Entry(f0, font=("Arial", 12), border=2, bg="white", width=5, relief="groove", justify="center")
+    player_id.pack(side="right", padx=(0, 10))
+    player_id.insert("end", "1")
+    player_id_label = tk.Label(f0, text="Player Online ID (must be unique for each LAN player):", font=("Arial", 12), border=2, bg="white")
+    player_id_label.pack(side="right", padx=(10, 0))
 
     # Row
     f0 = tk.Frame(win, border=1, bg="white")
     f0.pack(side="top", fill="x", expand=1, pady=10)
     new_online_b = tk.Button(
         f0, text="Create new online game", bg="peru", font=("Arial", 12), relief="groove",
-        command=lambda:startGame("create")
+        command=lambda:start_game("create")
     )
     new_online_b.pack(side="left", padx=10)
     url_server_label = tk.Label(f0, text=f"{HOST_IP}", font=("Arial", 12), border=2, bg="white")
-    url_server_label.pack(side="left", padx=10)
+    url_server_label.pack(side="left", padx=(10, 0))
     port_server_entry = tk.Entry(f0, font=("Arial", 12), border=2, bg="white", width=10, relief="groove", justify="center")
-    port_server_entry.pack(side="left", padx=10)
+    port_server_entry.pack(side="left", padx=(0, 10))
     port_server_entry.insert("end", "5000")
     players_label = tk.Label(f0, text="Online players:", font=("Arial", 12), border=2, bg="white")
-    players_label.pack(side="left", padx=10)
+    players_label.pack(side="left", padx=(30, 0))
     players_entry = tk.Entry(f0, font=("Arial", 12), border=2, bg="white", width=5, relief="groove", justify="center")
-    players_entry.pack(side="left", padx=10)
+    players_entry.pack(side="left", padx=(0, 10))
     players_entry.insert("end", "2")
 
     # Row
@@ -97,14 +88,14 @@ if __name__ == "__main__":
     f1.pack(side="top", fill="x", expand=1, pady=10)
     connect_b = tk.Button(
         f1, text="Connect to online game", bg="peru", font=("Arial", 12), relief="groove", border=2, padx=5,
-        command=lambda:startGame("connect")
+        command=lambda:start_game("connect")
     )
     connect_b.pack(side="left", padx=10)
     url_entry = tk.Entry(f1, font=("Arial", 12), border=2, bg="white", relief="groove", justify="center")
-    url_entry.pack(side="left", padx=10)
+    url_entry.pack(side="left", padx=(10, 0))
     url_entry.insert("end", HOST_IP)
     port_entry = tk.Entry(f1, font=("Arial", 12), border=2, bg="white", width=10, relief="groove", justify="center")
-    port_entry.pack(side="left", padx=10)
+    port_entry.pack(side="left", padx=(0, 10))
     port_entry.insert("end", "5000")
 
     # Row
@@ -112,14 +103,9 @@ if __name__ == "__main__":
     f2.pack(side="top", fill="x", expand=1, pady=10)
     new_game_b = tk.Button(
         f2, text="Start single-player game", bg="peru", font=("Arial", 12), relief="groove",
-        command=lambda:startGame("local")
+        command=lambda:start_game("local")
     )
     new_game_b.pack(side="left", padx=10)
-    player_id = tk.Entry(f2, font=("Arial", 12), border=2, bg="white", width=5, relief="groove", justify="center")
-    player_id.pack(side="right", padx=10)
-    player_id.insert("end", "1")
-    player_id_label = tk.Label(f2, text="Player Online ID:", font=("Arial", 12), border=2, bg="white")
-    player_id_label.pack(side="right", padx=10)
 
     output = tk.Text(root, height=15, width=15)
     root.protocol("WM_DELETE_WINDOW", sys.exit)
