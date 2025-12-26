@@ -110,3 +110,46 @@ if __name__ == "__main__":
     output = tk.Text(root, height=15, width=15)
     root.protocol("WM_DELETE_WINDOW", sys.exit)
     root.mainloop()
+
+
+"""
+def setup():
+    # Player ID (must be unique among other players on the network)
+    player_id = 1
+    # Scale (from 1 to 4)
+    scale = 2
+
+    online = None
+    is_host = True
+    threads = 1
+
+    if not ON_ANDROID:
+        if len(sys.argv) <= 1:
+            print("No arguments were given")
+        else:
+            for arg in sys.argv:
+                print("Arg: " + arg)
+            # noinspection PyBroadException
+            try:
+                option = sys.argv[1]
+                host_ip = sys.argv[2]
+                port_server = int(sys.argv[3])
+                players = int(sys.argv[4])
+                url = sys.argv[5]
+                port_connect = int(sys.argv[6])
+                player_id = int(sys.argv[7])
+                scale = int(sys.argv[8])
+
+                if option == "create":
+                    online = socket.socket()
+                    online.bind((host_ip, port_server))
+                    online.listen(players)
+                    threads = players
+                elif option == "connect":
+                    online = socket.socket()
+                    online.connect((url, port_connect))
+                    is_host = False
+            except Exception as _:
+                pass
+    return online, is_host, player_id, threads, scale
+"""
