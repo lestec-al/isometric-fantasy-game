@@ -25,6 +25,8 @@ GRAPH_PATH = os.path.join(MAIN_PATH, "data", "graphics")
 SOUND_PATH = os.path.join(MAIN_PATH, "data", "sounds")
 OBJECTS_PATH = os.path.join(MAIN_PATH, "data", "game_objects.json")
 
+SCALE = 4  # Must be the same in all players on the network
+FPS = 120 if ON_ANDROID else 60
 THREADS_NUMBER = 1
 ONLINE: socket or None
 MOBILE_MOVEMENT_ON = False
@@ -33,7 +35,6 @@ IS_HOST: bool
 PLAYER_ID: int
 SCREEN_WIDTH: int
 SCREEN_HEIGHT: int
-SCALE: int
 TILE_SIZE: int
 DAMAGES: list
 HUMAN_PERSONS: list
@@ -53,7 +54,7 @@ GAME_OBJECTS: dict
 BLACK = (0, 0, 0)
 RED = (255, 0, 0)
 ORANGE = (255, 165, 0)
-GREY = (0, 0, 0)  #(100, 100, 100)
+GREY = (100, 100, 100)
 WHITE = (255, 255, 255)
 BROWN = (222, 184, 135)
 
@@ -305,8 +306,10 @@ class Coins(Item):
 
 # PLAYERS, NPCs
 class Person(Object):
-    """Class for representing players and NPCs. Handles all sorts of things like stats, movement,
-    attacks, inventory, etc."""
+    """
+    Class for representing players and NPCs. Handles all sorts of things like stats, movement,
+    attacks, inventory, etc.
+    """
     def __init__(
             self,
             health,
@@ -845,16 +848,7 @@ class Person(Object):
         self.sound_status["inventory_items"] = True
         time.sleep(0.3)
 
-    def draw_inventory(self):
-        selected_items = [self.selected[k] for k in self.selected]
-        row_len, item_wh = get_half_screen_row_len()
-        # Draw inventory info text
-        inventory_surface_text = FONT.render(f"Inventory", True, WHITE)
-        WINDOW.blit(
-            inventory_surface_text,
-            ((((SCREEN_WIDTH // 2) - inventory_surface_text.get_width()) // 2), 20)
-        )
-        # Draw equipped, damage, armor info texts
+    def get_stats(self):
         if self.selected["weapon"] != None:
             weapon_damage = self.selected["weapon"].damage
         else:
@@ -862,13 +856,35 @@ class Person(Object):
         armor_stat = str(self.armor)[0:3] if len(str(self.armor)) > 3 else str(self.armor)
         sword_text = int(self.skills['sword'])
         spear_text = int(self.skills['spear'])
-        equipped_text = f"Equipped (weapon damage:{weapon_damage}, armor:{armor_stat}) Skills (sword:{sword_text}, spear:{spear_text})"
-        equipped_surface_text = FONT.render(equipped_text, True, WHITE)
-        WINDOW.blit(
-            equipped_surface_text,
-            (SCREEN_WIDTH // 2 + (((SCREEN_WIDTH // 2) - equipped_surface_text.get_width()) // 2),
-             20)
-        )
+        return str(weapon_damage), armor_stat, str(sword_text), str(spear_text)
+
+    def draw_inventory(self):
+        text_w = SCREEN_WIDTH / 3
+        selected_items = [self.selected[k] for k in self.selected]
+        row_len, item_wh = get_half_screen_row_len()
+        stats = self.get_stats()
+        # Draw inventory, equipped, skills texts
+        Text(
+            pos=(0, 10, text_w, 20),
+            text="INVENTORY",
+            color=WHITE,
+            size=20,
+            is_border=True
+        ).draw()
+        Text(
+            pos=(text_w, 10, text_w, 20),
+            text=f"SKILLS (sword:{stats[2]}, spear:{stats[3]})",
+            color=WHITE,
+            size=20,
+            is_border=True
+        ).draw()
+        Text(
+            pos=(text_w * 2, 10, text_w, 20),
+            text=f"EQUIPPED (DMG:{stats[0]}, ARM:{stats[1]})",
+            color=WHITE,
+            size=20,
+            is_border=True
+        ).draw()
         # Draw empty grid for equipped items
         y_index, x_index, item_index = 0, 0, 0
         for _ in range(9):
@@ -2097,9 +2113,27 @@ def run_game():
                 time.sleep(0.3)
 
         pygame.display.flip()
-        clock.tick(60)  # FPS
+        clock.tick(FPS)
 
     pygame.quit()
+
+
+def get_local_ip():
+    """
+    Attempts to find the non-loopback local IP address by connecting to an
+    external IP address.
+    """
+    s = None
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(('8.8.8.8', 80))
+        local_ip = s.getsockname()[0]
+    except socket.error:
+        local_ip = socket.gethostbyname(socket.gethostname())
+    finally:
+        if s:
+            s.close()
+    return local_ip
 
 
 def run_main_menu():
@@ -2119,80 +2153,146 @@ def run_main_menu():
         vsync=1
     )
 
-    # Init & draw background
     back_img = pygame.transform.scale(
         surface=pygame.image.load(os.path.join(GRAPH_PATH, "menu_background.png")),
         size=(SCREEN_WIDTH, SCREEN_HEIGHT)
     )
-    WINDOW.blit(back_img, (0, 0, SCREEN_WIDTH, SCREEN_HEIGHT))
 
-    # Init & draw title, buttons (on right side)
-    width = SCREEN_WIDTH / 4
-    left = SCREEN_WIDTH - width - 50
+    # Right side
+    width = SCREEN_WIDTH / 3
+    height = SCREEN_HEIGHT / 7
+    half_height = height / 2
+    padding = height / 4
+    left = SCREEN_WIDTH - width - padding
 
-    Text((left, 50, width, 50), "Adventurer's Path", WHITE, 45, True).draw()
-    Text((left, 100, width, 50), "Game Prototype", WHITE, 30, True).draw()
+    title = Text(
+        (left, 0, width, height),"Adventurer's Path", WHITE, 50, True
+    )
 
-    def setup_button(text: str, offset: int) -> Button:
-        font = pygame.font.Font("freesansbold.ttf", 20)
+    def setup_button(text: str, bottom_offset: float):
+        font = pygame.font.Font("freesansbold.ttf", 25)
         return Button(
-            (left, SCREEN_HEIGHT - offset, width, 100),
+            (left, SCREEN_HEIGHT - height - bottom_offset, width, height),
             font.render(text, True, BLACK),
             True
         )
 
-    start_single_button = setup_button("START SINGLE-PLAYER GAME", 480)
-    start_single_button.draw()
-    create_online_button = setup_button("CREATE NEW ONLINE GAME", 370)
-    create_online_button.draw()
-    connect_button = setup_button("CONNECT TO ONLINE GAME", 260)
-    connect_button.draw()
-    exit_button = setup_button("EXIT", 150)
-    exit_button.draw()
+    start_single_button = setup_button("Start Single-Player Game", height * 3 + padding * 4)
+    create_online_button = setup_button("Create New Online Game", height * 2 + padding * 3)
+    connect_button = setup_button("Connect To Online Game", height + padding * 2)
+    exit_button = setup_button("Exit", padding)
 
-    # Init & draw setting (on left side) (to text edit ???)
-    local_url = socket.gethostbyname(socket.gethostname())
-    SCALE = 4 if ON_ANDROID else 2
+    # Left side
+    local_url = get_local_ip()
+    host = f"{local_url}:5001"
     PLAYER_ID = 1  # Must be unique among other players on the network
     players = 2
-    host = f"{local_url}:5001"
-    url = f"{local_url}:5001"  # "192.168.100.30:5000"  # ???
+    url = f"{local_url}:5001"
 
-    setting_rect = (50, SCREEN_HEIGHT - 480, width, 430)
-    pygame.draw.rect(WINDOW, WHITE, setting_rect, border_radius=20)
-    pygame.draw.rect(WINDOW, BLACK, setting_rect, width=2, border_radius=20)
+    settings_rect = (
+        padding,
+        (SCREEN_HEIGHT / 2) - padding,
+        (SCREEN_WIDTH / 2) - padding,
+        SCREEN_HEIGHT / 2
+    )
 
-    def setup_text(text: str, offset: int):
+    def fix_url(is_append: bool):
+        url_split = url.split(":")
+        address_split = url_split[0].split(".")
+        address_join = ".".join(address_split[0:len(address_split)-1])
+        last_number = int(address_split[len(address_split)-1])
+        result = last_number + 1 if is_append else last_number - 1
+        return f"{address_join}.{result}:{url_split[1]}"
+
+    def setup_text(text: str, top_offset: float):
         Text(
-            (70, SCREEN_HEIGHT - 450 + offset, width, 50),
-            text, BLACK, 20, is_centered=False
+            (padding + 20, (SCREEN_HEIGHT / 2) - padding + 20 + top_offset, width, half_height),
+            text, BLACK, 25, is_centered=False
         ).draw()
 
-    setup_text(f"Scale: {SCALE}", 0)
-    setup_text(f"Player ID: {PLAYER_ID}", 50)
-    setup_text(f"Players: {players}", 100)
-    setup_text(f"Host: {host}", 150)
-    setup_text(f"URL: {url}", 200)
+    def setup_small_button(text: str, offset: float, is_left: bool):
+        font = pygame.font.Font("freesansbold.ttf", 30)
+        h_offset = half_height * 2 if is_left else half_height
+        return Button(
+            (
+                (SCREEN_WIDTH / 2) - padding - h_offset,
+                (SCREEN_HEIGHT / 2) - padding + offset,
+                half_height, half_height
+            ),
+            font.render(text, True, BLACK), True
+        )
+
+    players_button_minus = setup_small_button("-", half_height, True)
+    players_button_plus = setup_small_button("+", half_height, False)
+    player_id_button_minus = setup_small_button("-", half_height * 2, True)
+    player_id_button_plus = setup_small_button("+", half_height * 2, False)
+    url_button_minus = setup_small_button("-", half_height * 3, True)
+    url_button_plus = setup_small_button("+", half_height * 3, False)
 
     # Menu loop
     clock = pygame.time.Clock()
     game_mode = ""
     while game_mode == "":
+        # Draw texts, buttons
+        WINDOW.blit(back_img, (0, 0, SCREEN_WIDTH, SCREEN_HEIGHT))
+        pygame.draw.rect(WINDOW, WHITE, settings_rect, border_radius=20)
+        pygame.draw.rect(WINDOW, BLACK, settings_rect, width=2, border_radius=20)
+
+        setup_text(f"Your local URL: {host}", 0)
+        setup_text(f"Online players: {players}", half_height)
+        setup_text(f"Your Player ID: {PLAYER_ID}", half_height * 2)
+        setup_text(f"URL to connect: {url}", half_height * 3)
+
+        for i in [
+            start_single_button,
+            create_online_button,
+            connect_button,
+            exit_button,
+            players_button_minus, players_button_plus,
+            player_id_button_minus, player_id_button_plus,
+            url_button_minus, url_button_plus,
+            title
+        ]:
+            i.draw()
+
+        # Listen events, buttons
         for event in pygame.event.get():
             if get_is_back_clicked(event):
                 game_mode = "exit"
-        # Listen buttons
+                time.sleep(0.3)
         if start_single_button.get_is_clicked():
             game_mode = "offline"
+            time.sleep(0.3)
         if create_online_button.get_is_clicked():
             game_mode = "create"
+            time.sleep(0.3)
         if connect_button.get_is_clicked():
             game_mode = "connect"
+            time.sleep(0.3)
         if exit_button.get_is_clicked():
             game_mode = "exit"
+            time.sleep(0.3)
+        if players_button_minus.get_is_clicked():
+            players = players - 1 if players - 1 >= 0 else 0
+            time.sleep(0.3)
+        if players_button_plus.get_is_clicked():
+            players += 1
+            time.sleep(0.3)
+        if player_id_button_minus.get_is_clicked():
+            PLAYER_ID = PLAYER_ID - 1 if PLAYER_ID - 1 >= 0 else 0
+            time.sleep(0.3)
+        if player_id_button_plus.get_is_clicked():
+            PLAYER_ID += 1
+            time.sleep(0.3)
+        if url_button_minus.get_is_clicked():
+            url = fix_url(False)
+            time.sleep(0.3)
+        if url_button_plus.get_is_clicked():
+            url = fix_url(True)
+            time.sleep(0.3)
 
         pygame.display.flip()
-        clock.tick(60)  # FPS
+        clock.tick(FPS)
 
     # noinspection PyBroadException
     try:
@@ -2207,7 +2307,6 @@ def run_main_menu():
             THREADS_NUMBER = players
         elif game_mode == "connect":
             url_s, url_port = url.split(":")
-            PLAYER_ID = 2
             ONLINE = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             ONLINE.connect((url_s, int(url_port)))
             IS_HOST = False
