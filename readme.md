@@ -13,7 +13,7 @@ The player survived the storm and found himself on a small island with hostile s
 - NPC enemy move (with collisions, when player in some radius) and attack the player.
 - NPC trader sells/buys items for 100 coins per item.
 - Interface, sounds, small world map with NPCs.
-- Online gameplay on local network, ~2-3 players (for now only on PC).
+- Online gameplay on local network, ~2-3 players.
 - Game is works on PC & Android (APK build with [python-for-android](https://github.com/kivy/python-for-android)).
 
 ## Controls
@@ -35,7 +35,7 @@ See releases and pick from them. Or for direct running the code:
 - Install Python (v3.10 or higher).
 - Install frameworks from "requirements.txt" (it is advised to create virtual environment and install there).
 - Download (and extract) or clone this repo.
-- Launch via command line "python menu.py" in the project folder.
+- Launch via command line "python main.py" in the project folder.
 
 ## The project used
 - The map was created using the level editor "Tiled" - https://www.mapeditor.org
