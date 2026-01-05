@@ -25,16 +25,16 @@ GRAPH_PATH = os.path.join(MAIN_PATH, "data", "graphics")
 SOUND_PATH = os.path.join(MAIN_PATH, "data", "sounds")
 OBJECTS_PATH = os.path.join(MAIN_PATH, "data", "game_objects.json")
 
-SCALE = 4  # Must be the same in all players on the network
-FPS = 120 if ON_ANDROID else 60
+SCALE = 3  # Must be the same in all players on the network
+FPS = 60
 THREADS_NUMBER = 1
-ONLINE: socket or None
+ONLINE: socket.socket or None
 MOBILE_MOVEMENT_ON = False
 X_MOBILE, Y_MOBILE = None, None
 IS_HOST: bool
 PLAYER_ID: int
-SCREEN_WIDTH: int
-SCREEN_HEIGHT: int
+WIDTH: int
+HEIGHT: int
 TILE_SIZE: int
 DAMAGES: list
 HUMAN_PERSONS: list
@@ -859,7 +859,7 @@ class Person(Object):
         return str(weapon_damage), armor_stat, str(sword_text), str(spear_text)
 
     def draw_inventory(self):
-        text_w = SCREEN_WIDTH / 3
+        text_w = WIDTH / 3
         selected_items = [self.selected[k] for k in self.selected]
         row_len, item_wh = get_half_screen_row_len()
         stats = self.get_stats()
@@ -893,7 +893,7 @@ class Person(Object):
                 x_index = 0
             x = x_index * item_wh
             y = y_index * item_wh
-            item_pos = pygame.Rect(SCREEN_WIDTH - item_wh - x - 10, y + 50, item_wh, item_wh)
+            item_pos = pygame.Rect(WIDTH - item_wh - x - 10, y + 50, item_wh, item_wh)
             pygame.draw.rect(WINDOW, GREY, item_pos, 1)
             x_index += 1
         # Draw inventory
@@ -974,41 +974,41 @@ class Person(Object):
                 # First row
                 if i.obj_type == "weapon":
                     selected_pos = pygame.Rect(
-                        SCREEN_WIDTH - item_wh - 10, 50, item_wh, item_wh
+                        WIDTH - item_wh - 10, 50, item_wh, item_wh
                     )
                 elif i.obj_type == "shield":
                     selected_pos = pygame.Rect(
-                        SCREEN_WIDTH - (item_wh * 2) - 10, 50, item_wh, item_wh
+                        WIDTH - (item_wh * 2) - 10, 50, item_wh, item_wh
                     )
                 elif i.obj_type == "behind":
                     selected_pos = pygame.Rect(
-                        SCREEN_WIDTH - (item_wh * 3) - 10, 50, item_wh, item_wh
+                        WIDTH - (item_wh * 3) - 10, 50, item_wh, item_wh
                     )
                 # Second row
                 elif i.obj_type == "hands":
                     selected_pos = pygame.Rect(
-                        SCREEN_WIDTH - item_wh - 10, 50 + item_wh, item_wh, item_wh
+                        WIDTH - item_wh - 10, 50 + item_wh, item_wh, item_wh
                     )
                 elif i.obj_type == "torso":
                     selected_pos = pygame.Rect(
-                        SCREEN_WIDTH - (item_wh * 2) - 10, 50 + item_wh, item_wh, item_wh
+                        WIDTH - (item_wh * 2) - 10, 50 + item_wh, item_wh, item_wh
                     )
                 elif i.obj_type == "head":
                     selected_pos = pygame.Rect(
-                        SCREEN_WIDTH - (item_wh * 3) - 10, 50 + item_wh, item_wh, item_wh
+                        WIDTH - (item_wh * 3) - 10, 50 + item_wh, item_wh, item_wh
                     )
                 # Third row
                 elif i.obj_type == "feet":
                     selected_pos = pygame.Rect(
-                        SCREEN_WIDTH - item_wh - 10, 50 + item_wh * 2, item_wh, item_wh
+                        WIDTH - item_wh - 10, 50 + item_wh * 2, item_wh, item_wh
                     )
                 elif i.obj_type == "legs":
                     selected_pos = pygame.Rect(
-                        SCREEN_WIDTH - (item_wh * 2) - 10, 50 + item_wh * 2, item_wh, item_wh
+                        WIDTH - (item_wh * 2) - 10, 50 + item_wh * 2, item_wh, item_wh
                     )
                 elif i.obj_type == "belt":
                     selected_pos = pygame.Rect(
-                        SCREEN_WIDTH - (item_wh * 3) - 10, 50 + item_wh * 2, item_wh, item_wh
+                        WIDTH - (item_wh * 3) - 10, 50 + item_wh * 2, item_wh, item_wh
                     )
                 if selected_pos != None:
                     pygame.draw.rect(WINDOW, BROWN, selected_pos)
@@ -1037,10 +1037,13 @@ class Person(Object):
             text = "NPC Items" if "npc" in self.box.obj_type else "Box Items"
         elif self.trader != None:
             text = "Trader Items"
-        WINDOW.blit(FONT.render(text, True, WHITE), (SCREEN_WIDTH // 5, 20))
+        WINDOW.blit(
+            FONT.render(text, True, WHITE), (WIDTH // 5, 20)
+        )
         equipped_text = f"Inventory"
-        WINDOW.blit(FONT.render(equipped_text, True, WHITE),
-                    (SCREEN_WIDTH - SCREEN_WIDTH // 3, 20))
+        WINDOW.blit(
+            FONT.render(equipped_text, True, WHITE),(WIDTH - WIDTH // 3, 20)
+        )
         # Draw box or dead NPC or Trader
         inventory = []
         if self.box != None:
@@ -1127,7 +1130,7 @@ class Person(Object):
                     x_index = 0
                 x = x_index * item_wh
                 y = y_index * item_wh
-                item_pos = pygame.Rect(SCREEN_WIDTH - item_wh - x - 10, y + 50, item_wh, item_wh)
+                item_pos = pygame.Rect(WIDTH - item_wh - x - 10, y + 50, item_wh, item_wh)
                 pygame.draw.rect(WINDOW, BROWN, item_pos)
                 pygame.draw.rect(WINDOW, GREY, item_pos, 1)
                 self.draw_item(i, item_pos)
@@ -1144,12 +1147,13 @@ class Person(Object):
                     text = str(i.armor)
                 WINDOW.blit(
                     FONT.render(f"{i.name}", True, WHITE),
-                    pygame.Rect(SCREEN_WIDTH - item_wh - x - 5, y + 55, item_wh, item_wh)
+                    pygame.Rect(WIDTH - item_wh - x - 5, y + 55, item_wh, item_wh)
                 )
                 WINDOW.blit(
                     FONT.render(text, True, WHITE),
-                    pygame.Rect(SCREEN_WIDTH - item_wh - x - 5, y + 58 + FONT.get_height(),
-                                item_wh, item_wh)
+                    pygame.Rect(
+                        WIDTH - item_wh - x - 5, y + 58 + FONT.get_height(), item_wh, item_wh
+                    )
                 )
                 # Use items
                 if item_pos.collidepoint(pygame.mouse.get_pos()):
@@ -1237,28 +1241,28 @@ class Person(Object):
         WINDOW.blit(image, rect)
 
     def camera(self):
-        right_border = WORLD_MAP_RECT.width - SCREEN_WIDTH
-        down_border = WORLD_MAP_RECT.height - SCREEN_HEIGHT
-        if self.screen.x < SCREEN_WIDTH // 2:
-            num1 = SCREEN_WIDTH // 2 - self.screen.x
+        right_border = WORLD_MAP_RECT.width - WIDTH
+        down_border = WORLD_MAP_RECT.height - HEIGHT
+        if self.screen.x < WIDTH // 2:
+            num1 = WIDTH // 2 - self.screen.x
             if self.camera_x - num1 < 0:
                 self.camera_x = 0
             else:
                 self.camera_x -= num1
-        elif self.screen.x > SCREEN_WIDTH // 2:
-            num1 = self.screen.x - SCREEN_WIDTH // 2
+        elif self.screen.x > WIDTH // 2:
+            num1 = self.screen.x - WIDTH // 2
             if self.camera_x + num1 > right_border:
                 self.camera_x = right_border
             else:
                 self.camera_x += num1
-        if self.screen.y < SCREEN_HEIGHT // 2:
-            num1 = SCREEN_HEIGHT // 2 - self.screen.y
+        if self.screen.y < HEIGHT // 2:
+            num1 = HEIGHT // 2 - self.screen.y
             if self.camera_y - num1 < 0:
                 self.camera_y = 0
             else:
                 self.camera_y -= num1
-        elif self.screen.y > SCREEN_HEIGHT // 2:
-            num1 = self.screen.y - SCREEN_HEIGHT // 2
+        elif self.screen.y > HEIGHT // 2:
+            num1 = self.screen.y - HEIGHT // 2
             if self.camera_y + num1 > down_border:
                 self.camera_y = down_border
             else:
@@ -1523,16 +1527,14 @@ class Person(Object):
 # ONLINE GAMEPLAY
 class OnlineUpdateThread(threading.Thread):
     """This module provides communication between the player (host) and the players (clients)"""
-    last_receive_time = None
-    thread_player_id = None
-    running = False
+    def __init__(self):
+        super().__init__()
+        self.stop_flag = threading.Event()
+        self.last_data = []
 
     def run(self):
         global IS_HOST
         conn = None
-        time_r = None
-        player_id = None
-
         if IS_HOST == True:
             # noinspection PyBroadException
             try:
@@ -1540,49 +1542,39 @@ class OnlineUpdateThread(threading.Thread):
             except:
                 pass
 
-        self.last_receive_time = None
-        self.thread_player_id = None
-
-        self.running = True
-        while self.running:
+        while not self.stop_flag.is_set():
             time.sleep(0.01)
+            if IS_HOST:
+                self.receive_update_data(conn)
+                self.send_data(conn, IS_HOST)
+            elif not IS_HOST:
+                self.send_data(ONLINE, IS_HOST)
+                self.receive_update_data(ONLINE)
 
-            if IS_HOST == True:
-                time_r, player_id = self.receive_update_data(conn)
-                if conn:
-                    self.send_data(conn)
-
-            elif IS_HOST == False:
-                self.send_data(ONLINE)
-                time_r, player_id = self.receive_update_data(ONLINE)
-
-            # If online player do not responds 2 min - close thread
-            if time_r != None:
-                self.last_receive_time = time_r
-                self.thread_player_id = player_id
-            if self.last_receive_time != None:
-                if time.time() - self.last_receive_time > 120.0:
-                    self.running = False
-
-        # If thread stops - delete online players
-        if self.thread_player_id != None:
+        if not IS_HOST:
             IS_HOST = True
-            for s in HUMAN_PERSONS:
-                if s.obj_id == self.thread_player_id:
+
+    def stop(self):
+        self.stop_flag.set()
+        # After thread is stopped - delete persons associated with that thread
+        persons = HUMAN_PERSONS + NPC_PERSONS
+        for d in self.last_data:
+            for s in persons:
+                if s.obj_id == d["obj_id"] and d["obj_id"] != PLAYER.obj_id:
                     SPRITES.remove(s)
                     HUMAN_PERSONS.remove(s)
 
-    def stop(self):
-        self.running = False
-
-    def send_data(self, source):
-        sending_data = []
-        s_data = {}
+    def send_data(self, source: socket.socket, is_host: bool):
+        sending_data = [{"damages": DAMAGES}]
         for s in HUMAN_PERSONS + NPC_PERSONS:
             if s.obj_type != "npc-trader":
-                if IS_HOST == True or (IS_HOST == False and s.obj_id == PLAYER.obj_id):
-                    s_data = {
-                        "player_id": s.obj_id,
+                if (
+                        (is_host == True and "player" in s.obj_type) or
+                        (is_host == False and s.obj_id == PLAYER.obj_id)
+                ):
+                    sending_data.append({
+                        "obj_id": s.obj_id,
+                        "obj_type": s.obj_type,
                         "health": s.health,
                         "attack_stop": s.attack_stop,
                         "attack_anim_stop": s.attack_anim_stop,
@@ -1591,26 +1583,24 @@ class OnlineUpdateThread(threading.Thread):
                         "map_x": s.obj_map.x,
                         "map_y": s.obj_map.y,
                         "move_status": s.move_status,
-                    }
-                    if s == PLAYER:
-                        s_data["wear"] = s.wear
-                        s_data["armor"] = s.armor
-                sending_data.append(s_data)
-        sending_data.append({"damages": DAMAGES})
+                        "wear": s.wear,
+                        "armor": s.armor
+                    })
         data_to_send = json.dumps(sending_data)
-        # noinspection PyBroadException
         try:
             source.sendall(bytes(data_to_send, encoding="utf-8"))
-        except:
-            pass
+        except Exception as e:
+            print(f"Send Data Error: {e}")
         DAMAGES.clear()
 
     def receive_update_data(self, source):
         def update_person_info(person: Person, url_person: dict):
-            person.move_status = d["move_status"]
+            person.move_status = url_person["move_status"]
             person.health = url_person["health"]
             person.attack_stop = url_person["attack_stop"]
             person.attack_anim_stop = url_person["attack_anim_stop"]
+            person.wear = url_person["wear"]
+            person.armor = url_person["armor"]
             # noinspection PyBroadException
             try:
                 person.attack_time = float(url_person["attack_time"])
@@ -1622,50 +1612,40 @@ class OnlineUpdateThread(threading.Thread):
             except:
                 person.under_attack_time = None
 
-        # noinspection PyBroadException
         try:
-            received_data = source.recv(10000)
-            received_data = received_data.decode("utf-8")
-            received_data = json.loads(received_data)
-            player_id = 0
-            for d in received_data:
-                if len(d) == 1:
-                    # [(person.obj_id, damage, under_attack_time),]
-                    for i in d["damages"]:
-                        for s in HUMAN_PERSONS + NPC_PERSONS:
-                            if s.obj_id == i[0]:
-                                s.health -= i[1]
-                                s.under_attack_time = i[2]
-                    continue
+            received_data = json.loads(source.recv(10000).decode("utf-8"))
+            persons = HUMAN_PERSONS + NPC_PERSONS
+            #
+            first_obj = received_data[0]
+            for i in first_obj["damages"]:
+                for s in persons:
+                    # (person.obj_id, damage, under_attack_time)
+                    if s.obj_id == i[0]:
+                        s.health -= i[1]
+                        s.under_attack_time = i[2]
+            #
+            self.last_data = received_data[1:]
+            for d in self.last_data:
                 # Check if person already exist
                 found = False
-                for s in HUMAN_PERSONS + NPC_PERSONS:
-                    if s.obj_id == d["player_id"]:
+                for s in persons:
+                    if s.obj_id == d["obj_id"]:
                         found = True
-                        # Update person info
-                        if (IS_HOST == True and d["player_id"] != PLAYER.obj_id and d[
-                            "player_id"] < 99) or (
-                                IS_HOST == False and d["player_id"] != PLAYER.obj_id):
+                        if d["obj_id"] != PLAYER.obj_id:
+                            # Update person
                             s.obj_map.x = d["map_x"]
                             s.obj_map.y = d["map_y"]
                             update_person_info(s, d)
-                            if s in HUMAN_PERSONS:
-                                s.wear = d["wear"]
-                                s.armor = d["armor"]
-                                player_id = d["player_id"]
                 # If person not found, create new
                 if found == False:
-                    new = create_person("player")
-                    new.obj_type = "online_player"
-                    new.obj_id = d["player_id"]
+                    new = create_person(d["obj_type"])
+                    new.obj_type = "online_player" if d["obj_type"] == "player" else d["obj_type"]
+                    new.obj_id = d["obj_id"]
                     new.obj_map = pygame.Rect(d["map_x"], d["map_y"], TILE_SIZE / 2, TILE_SIZE / 2)
-                    new.wear = d["wear"]
-                    new.armor = d["armor"]
                     update_person_info(new, d)
-
-            return time.time(), player_id
-        except:
-            return None, None
+        except Exception as e:
+            print(f"Receive Data Error: {e}")
+            self.stop()
 
 
 # UTILS FUNCTIONS
@@ -1868,17 +1848,19 @@ def get_half_screen_row_len() -> tuple[int, int]:
 
 
 def close_gameplay(threads: list[OnlineUpdateThread]):
-    if threads is None:
-        threads = []
-    if ONLINE != None:
-        for t in threads:
-            t.stop()
+    def shutdown():
+        time.sleep(1)
         # noinspection PyBroadException
         try:
             ONLINE.shutdown(socket.SHUT_RDWR)
         except:
             pass
         ONLINE.close()
+
+    if ONLINE != None:
+        for t in threads:
+            t.stop()
+        threading.Thread(target=shutdown).start()
 
 
 def get_is_back_clicked(e: pygame.event.Event):
@@ -1888,7 +1870,7 @@ def get_is_back_clicked(e: pygame.event.Event):
 
 
 def run_game():
-    global SCREEN_WIDTH, SCREEN_HEIGHT, TILE_SIZE, SCALE, MOBILE_MOVEMENT_ON, X_MOBILE, Y_MOBILE
+    global WIDTH, HEIGHT, TILE_SIZE, SCALE, MOBILE_MOVEMENT_ON, X_MOBILE, Y_MOBILE
     global ONLINE, IS_HOST, PLAYER_ID, THREADS_NUMBER, DAMAGES
     global WINDOW, FONT, SOUNDS, IMAGES, WORLD_MAP_RECT
     global HUMAN_PERSONS, NPC_PERSONS, ITEMS, SPRITES, TREETOPS, DEAD_NPC, GAME_OBJECTS
@@ -1935,23 +1917,23 @@ def run_game():
     # Buttons creation
     _, item_wh = get_half_screen_row_len()
     move_button = Button(
-        (10, SCREEN_HEIGHT - item_wh - 10, item_wh, item_wh),
+        (10, HEIGHT - item_wh - 10, item_wh, item_wh),
         move_img
     )
     attack_button = Button(
-        (SCREEN_WIDTH - item_wh - 10, SCREEN_HEIGHT - item_wh - 10, item_wh, item_wh),
+        (WIDTH - item_wh - 10, HEIGHT - item_wh - 10, item_wh, item_wh),
         sword_img
     )
     grab_button = Button(
-        (SCREEN_WIDTH - (item_wh * 2) - 10 - 3, SCREEN_HEIGHT - item_wh - 10, item_wh, item_wh),
+        (WIDTH - (item_wh * 2) - 10 - 3, HEIGHT - item_wh - 10, item_wh, item_wh),
         grab_img
     )
     loot_trade_button = Button(
-        (SCREEN_WIDTH - (item_wh * 3) - 10 - 6, SCREEN_HEIGHT - item_wh - 10, item_wh, item_wh),
+        (WIDTH - (item_wh * 3) - 10 - 6, HEIGHT - item_wh - 10, item_wh, item_wh),
         trade_img
     )
     inventory_button = Button(
-        (SCREEN_WIDTH - (item_wh * 4) - 10 - 9, SCREEN_HEIGHT - item_wh - 10, item_wh, item_wh),
+        (WIDTH - (item_wh * 4) - 10 - 9, HEIGHT - item_wh - 10, item_wh, item_wh),
         item_img
     )
 
@@ -2137,64 +2119,56 @@ def get_local_ip():
 
 
 def run_main_menu():
-    global SCREEN_WIDTH, SCREEN_HEIGHT, TILE_SIZE, SCALE, MOBILE_MOVEMENT_ON, X_MOBILE, Y_MOBILE
+    global WIDTH, HEIGHT, TILE_SIZE, SCALE, MOBILE_MOVEMENT_ON, X_MOBILE, Y_MOBILE
     global ONLINE, IS_HOST, PLAYER_ID, THREADS_NUMBER, DAMAGES
     global WINDOW, FONT, SOUNDS, IMAGES, WORLD_MAP_RECT
     global HUMAN_PERSONS, NPC_PERSONS, ITEMS, SPRITES, TREETOPS, DEAD_NPC, GAME_OBJECTS
 
     pygame.init()
     info = pygame.display.Info()
-    SCREEN_WIDTH, SCREEN_HEIGHT = info.current_w, info.current_h
+    WIDTH = 1600 if ON_ANDROID else info.current_w
+    HEIGHT = 800 if ON_ANDROID else info.current_h
     pygame.display.set_icon(pygame.image.load(os.path.join(GRAPH_PATH, "icon.png")))
     pygame.display.set_caption("Adventurer's Path")
     WINDOW = pygame.display.set_mode(
-        (SCREEN_WIDTH, SCREEN_HEIGHT),
+        (WIDTH, HEIGHT),
         pygame.SCALED | pygame.FULLSCREEN,
         vsync=1
     )
 
     back_img = pygame.transform.scale(
         surface=pygame.image.load(os.path.join(GRAPH_PATH, "menu_background.png")),
-        size=(SCREEN_WIDTH, SCREEN_HEIGHT)
+        size=(WIDTH, HEIGHT)
     )
 
     # Right side
-    width = SCREEN_WIDTH / 3
-    height = SCREEN_HEIGHT / 7
-    half_height = height / 2
-    padding = height / 4
-    left = SCREEN_WIDTH - width - padding
-
-    title = Text(
-        (left, 0, width, height),"Adventurer's Path", WHITE, 50, True
-    )
+    w = WIDTH / 3
+    h = HEIGHT / 7
+    h05 = h / 2
+    padding = h / 4
+    left = WIDTH - w - padding
+    title = Text((left, 0, w, h),"Adventurer's Path", WHITE, 50, True)
 
     def setup_button(text: str, bottom_offset: float):
         font = pygame.font.Font("freesansbold.ttf", 25)
         return Button(
-            (left, SCREEN_HEIGHT - height - bottom_offset, width, height),
+            (left, HEIGHT - h - bottom_offset, w, h),
             font.render(text, True, BLACK),
             True
         )
 
-    start_single_button = setup_button("Start Single-Player Game", height * 3 + padding * 4)
-    create_online_button = setup_button("Create New Online Game", height * 2 + padding * 3)
-    connect_button = setup_button("Connect To Online Game", height + padding * 2)
+    start_single_button = setup_button("Start Single-Player Game", h * 3 + padding * 4)
+    create_online_button = setup_button("Create New Online Game", h * 2 + padding * 3)
+    connect_button = setup_button("Connect To Online Game", h + padding * 2)
     exit_button = setup_button("Exit", padding)
 
     # Left side
     local_url = get_local_ip()
     host = f"{local_url}:5001"
     PLAYER_ID = 1  # Must be unique among other players on the network
-    players = 2
+    players = 1
     url = f"{local_url}:5001"
-
-    settings_rect = (
-        padding,
-        (SCREEN_HEIGHT / 2) - padding,
-        (SCREEN_WIDTH / 2) - padding,
-        SCREEN_HEIGHT / 2
-    )
+    settings_rect = (padding, (HEIGHT / 2) - padding, WIDTH / 2, HEIGHT / 2)
 
     def fix_url(is_append: bool):
         url_split = url.split(":")
@@ -2206,42 +2180,42 @@ def run_main_menu():
 
     def setup_text(text: str, top_offset: float):
         Text(
-            (padding + 20, (SCREEN_HEIGHT / 2) - padding + 20 + top_offset, width, half_height),
+            (padding + 20, (HEIGHT / 2) - padding + 20 + top_offset, w, h05),
             text, BLACK, 25, is_centered=False
         ).draw()
 
-    def setup_small_button(text: str, offset: float, is_left: bool):
+    def setup_small_button(text: str, y_offset: float, is_left: bool):
         font = pygame.font.Font("freesansbold.ttf", 30)
-        h_offset = half_height * 2 if is_left else half_height
+        x_offset = h05 * 2 if is_left else h05
         return Button(
             (
-                (SCREEN_WIDTH / 2) - padding - h_offset,
-                (SCREEN_HEIGHT / 2) - padding + offset,
-                half_height, half_height
+                (WIDTH / 2) - padding - x_offset,
+                (HEIGHT / 2) - padding + y_offset,
+                h05, h05
             ),
             font.render(text, True, BLACK), True
         )
 
-    players_button_minus = setup_small_button("-", half_height, True)
-    players_button_plus = setup_small_button("+", half_height, False)
-    player_id_button_minus = setup_small_button("-", half_height * 2, True)
-    player_id_button_plus = setup_small_button("+", half_height * 2, False)
-    url_button_minus = setup_small_button("-", half_height * 3, True)
-    url_button_plus = setup_small_button("+", half_height * 3, False)
+    players_button_minus = setup_small_button("-", h05, True)
+    players_button_plus = setup_small_button("+", h05, False)
+    player_id_button_minus = setup_small_button("-", h05 * 2, True)
+    player_id_button_plus = setup_small_button("+", h05 * 2, False)
+    url_button_minus = setup_small_button("-", h05 * 3, True)
+    url_button_plus = setup_small_button("+", h05 * 3, False)
 
     # Menu loop
     clock = pygame.time.Clock()
     game_mode = ""
     while game_mode == "":
         # Draw texts, buttons
-        WINDOW.blit(back_img, (0, 0, SCREEN_WIDTH, SCREEN_HEIGHT))
+        WINDOW.blit(back_img, (0, 0, WIDTH, HEIGHT))
         pygame.draw.rect(WINDOW, WHITE, settings_rect, border_radius=20)
         pygame.draw.rect(WINDOW, BLACK, settings_rect, width=2, border_radius=20)
 
         setup_text(f"Your local URL: {host}", 0)
-        setup_text(f"Online players: {players}", half_height)
-        setup_text(f"Your Player ID: {PLAYER_ID}", half_height * 2)
-        setup_text(f"URL to connect: {url}", half_height * 3)
+        setup_text(f"Online players: {players}", h05)
+        setup_text(f"Your Player ID: {PLAYER_ID}", h05 * 2)
+        setup_text(f"URL to connect: {url}", h05 * 3)
 
         for i in [
             start_single_button,
