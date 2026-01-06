@@ -8,6 +8,7 @@ import socket
 import sys
 import threading
 import time
+import string
 from PIL import Image
 
 if ON_ANDROID:
@@ -54,12 +55,100 @@ GAME_OBJECTS: dict
 BLACK = (0, 0, 0)
 RED = (255, 0, 0)
 ORANGE = (255, 165, 0)
-GREY = (100, 100, 100)
+GREY = (102, 102, 102)
 WHITE = (255, 255, 255)
 BROWN = (222, 184, 135)
 
 
 # MAIN ASSETS
+class EditText:
+    letters = [f"K_{i}" for i in list(string.ascii_lowercase)]
+    specials = {"K_COMMA":",", "K_SEMICOLON":":", "K_PERIOD":".", "K_SLASH":"/"}
+    digits = [f"K_{i}" for i in list(string.digits)]
+    constants = vars(pygame.constants).items()
+    selected_by_label = ""
+
+    def __init__(
+            self,
+            text: str,
+            label: str,
+            size: int,
+            color: tuple[int, int, int],
+            # left, right, width
+            pos: tuple[float, float, float],
+            enabled = True
+    ):
+        self.text = text
+        self.label = label
+        self.color = color
+        self.pos_x = int(pos[0])
+        self.pos_y = int(pos[1])
+        self.width = None if pos[2] == None else int(pos[2])
+        self.font = pygame.font.Font("freesansbold.ttf", size)
+        self.is_edit = False
+        self.enabled = enabled
+
+    def on_tick(self, events: list[pygame.event.Event]):
+        if self.is_edit and self.enabled:
+            self._check_typing(events)
+        rect = self._draw()
+        if self.enabled:
+            self._check_if_pressed_set_is_edit(rect)
+
+    def _check_if_pressed_set_is_edit(self, rect: pygame.Rect):
+        if rect.collidepoint(pygame.mouse.get_pos()) and pygame.mouse.get_pressed()[0]:
+            self.is_edit = not self.is_edit
+            if self.is_edit:
+                EditText.selected_by_label = self.label
+                pygame.key.start_text_input()
+            time.sleep(0.3)
+
+        if EditText.selected_by_label != self.label:
+            self.is_edit = False
+
+    def _check_typing(self, events: list[pygame.event.Event]):
+        for event in events:
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_BACKSPACE:
+                    if len(self.text) > 0:
+                        self.text = self.text[0:-1]
+                for name, value in self.constants:
+                    if event.key == value:
+                        if name in self.letters or name in self.digits:
+                            self.text += name[2:]
+                        if name in self.specials.keys():
+                            self.text += self.specials[name]
+
+    def _draw(self):
+        # Label
+        label_surface = self.font.render(self.label, True, GREY)
+        label_rect = label_surface.get_rect()
+        label_rect.x = self.pos_x + 10
+        label_rect.y = self.pos_y + 10
+        if self.width != None:
+            label_rect.width = self.width
+        WINDOW.blit(label_surface, label_rect)
+        # Text
+        text_surface = self.font.render(self.text, True, self.color)
+        text_rect = text_surface.get_rect()
+        text_rect.x = self.pos_x + 10
+        text_rect.y = self.pos_y + 10 + label_rect.height
+        WINDOW.blit(text_surface, text_rect)
+        # Border
+        if self.enabled:
+            border_rect = label_rect.copy()
+            border_rect.x = self.pos_x
+            border_rect.y = self.pos_y
+            label_width = label_rect.width if label_rect.width > text_rect.width else text_rect.width
+            border_rect.width = label_width + 20
+            border_rect.height = text_rect.height + label_rect.height + 20
+            border_color = BROWN if self.is_edit else GREY
+            pygame.draw.rect(WINDOW, border_color, border_rect, width=2, border_radius=10)
+            return border_rect
+        else:
+            return None
+
+
 class Text:
     """This module provide basic text on screen"""
     def __init__(
@@ -68,32 +157,41 @@ class Text:
             text: str,
             color: tuple[int, int, int],
             size: int,
-            is_border = False,
-            is_centered = True
+            shadow = False,
+            centered = True
     ):
         self.pos = pygame.Rect(pos)
         self.text = text
         self.color = color
         self.size = size
-        self.is_border = is_border
-        self.is_centered = is_centered
+        self.shadow = shadow
+        self.centered = centered
 
     def draw(self):
-        if self.is_border:
+        if self.shadow:
             font_border = pygame.font.Font("freesansbold.ttf", self.size)
             surface = font_border.render(self.text, True, BLACK)
-            rect = surface.get_rect()
-            rect.center = self.pos.move(0, 4).center
-            WINDOW.blit(surface, rect)
+            if self.centered:
+                rect = surface.get_rect()
+                rect.center = self.pos.move(0, 4).center
+                WINDOW.blit(surface, rect)
+            else:
+                rect = surface.get_rect()
+                rect.centery = self.pos.move(0, 4).centery
+                rect.x = self.pos.x
+                WINDOW.blit(surface, rect)
         # Text itself
         font = pygame.font.Font("freesansbold.ttf", self.size)
         surface = font.render(self.text, True, self.color)
-        if self.is_centered:
+        if self.centered:
             rect = surface.get_rect()
             rect.center = self.pos.center
             WINDOW.blit(surface, rect)
         else:
-            WINDOW.blit(surface, self.pos)
+            rect = surface.get_rect()
+            rect.centery = self.pos.centery
+            rect.x = self.pos.x
+            WINDOW.blit(surface, rect)
 
 
 class Button:
@@ -109,7 +207,7 @@ class Button:
         self.is_border = is_border
         self.is_clicked = False
 
-    def draw(self):
+    def _draw(self):
         pygame.draw.rect(WINDOW, BROWN, self.pos, border_radius=100)
         if self.is_clicked:
             pygame.draw.rect(WINDOW, BLACK, self.pos, width=10, border_radius=100)
@@ -120,12 +218,9 @@ class Button:
             rect.center = self.pos.center
             WINDOW.blit(self.icon, rect)
 
-    def get_is_clicked(self) -> bool:
-        return self.pos.collidepoint(pygame.mouse.get_pos()) and pygame.mouse.get_pressed()[0]
-
     def draw_get_is_clicked(self) -> bool:
-        self.draw()
-        return self.get_is_clicked()
+        self._draw()
+        return self.pos.collidepoint(pygame.mouse.get_pos()) and pygame.mouse.get_pressed()[0]
 
 
 class Sounds:
@@ -869,21 +964,21 @@ class Person(Object):
             text="INVENTORY",
             color=WHITE,
             size=20,
-            is_border=True
+            shadow=True
         ).draw()
         Text(
             pos=(text_w, 10, text_w, 20),
             text=f"SKILLS (sword:{stats[2]}, spear:{stats[3]})",
             color=WHITE,
             size=20,
-            is_border=True
+            shadow=True
         ).draw()
         Text(
             pos=(text_w * 2, 10, text_w, 20),
             text=f"EQUIPPED (DMG:{stats[0]}, ARM:{stats[1]})",
             color=WHITE,
             size=20,
-            is_border=True
+            shadow=True
         ).draw()
         # Draw empty grid for equipped items
         y_index, x_index, item_index = 0, 0, 0
@@ -2124,6 +2219,14 @@ def run_main_menu():
     global WINDOW, FONT, SOUNDS, IMAGES, WORLD_MAP_RECT
     global HUMAN_PERSONS, NPC_PERSONS, ITEMS, SPRITES, TREETOPS, DEAD_NPC, GAME_OBJECTS
 
+    # Online related vars
+    local_url = get_local_ip()
+    host = local_url
+    PLAYER_ID = 1  # Must be unique among other players on the network
+    players = 1
+    url = local_url
+    port = 5241
+
     pygame.init()
     info = pygame.display.Info()
     WIDTH = 1600 if ON_ANDROID else info.current_w
@@ -2141,12 +2244,18 @@ def run_main_menu():
         size=(WIDTH, HEIGHT)
     )
 
-    # Right side
     w = WIDTH / 3
     h = HEIGHT / 7
-    h05 = h / 2
+    h07 = h / 1.5
     padding = h / 4
     left = WIDTH - w - padding
+    settings_rect = (
+        padding,
+        (HEIGHT / 2) - padding,
+        (padding * 2) + w,
+        HEIGHT / 2
+    )
+
     title = Text((left, 0, w, h),"Adventurer's Path", WHITE, 50, True)
 
     def setup_button(text: str, bottom_offset: float):
@@ -2162,134 +2271,97 @@ def run_main_menu():
     connect_button = setup_button("Connect To Online Game", h + padding * 2)
     exit_button = setup_button("Exit", padding)
 
-    # Left side
-    local_url = get_local_ip()
-    host = f"{local_url}:5001"
-    PLAYER_ID = 1  # Must be unique among other players on the network
-    players = 1
-    url = f"{local_url}:5001"
-    settings_rect = (padding, (HEIGHT / 2) - padding, WIDTH / 2, HEIGHT / 2)
+    def get_pos(y_offset: float):
+        return padding + 20, (HEIGHT / 2) - padding + 20 + y_offset, w
 
-    def fix_url(is_append: bool):
-        url_split = url.split(":")
-        address_split = url_split[0].split(".")
-        address_join = ".".join(address_split[0:len(address_split)-1])
-        last_number = int(address_split[len(address_split)-1])
-        result = last_number + 1 if is_append else last_number - 1
-        return f"{address_join}.{result}:{url_split[1]}"
-
-    def setup_text(text: str, top_offset: float):
-        Text(
-            (padding + 20, (HEIGHT / 2) - padding + 20 + top_offset, w, h05),
-            text, BLACK, 25, is_centered=False
-        ).draw()
-
-    def setup_small_button(text: str, y_offset: float, is_left: bool):
-        font = pygame.font.Font("freesansbold.ttf", 30)
-        x_offset = h05 * 2 if is_left else h05
-        return Button(
-            (
-                (WIDTH / 2) - padding - x_offset,
-                (HEIGHT / 2) - padding + y_offset,
-                h05, h05
-            ),
-            font.render(text, True, BLACK), True
-        )
-
-    players_button_minus = setup_small_button("-", h05, True)
-    players_button_plus = setup_small_button("+", h05, False)
-    player_id_button_minus = setup_small_button("-", h05 * 2, True)
-    player_id_button_plus = setup_small_button("+", h05 * 2, False)
-    url_button_minus = setup_small_button("-", h05 * 3, True)
-    url_button_plus = setup_small_button("+", h05 * 3, False)
+    host_not_edit = EditText(
+        f"{host}", "Address for players to connect to you",
+        25, BLACK, get_pos(0), False
+    )
+    players_edit = EditText(
+        f"{players}", "Players that will be connected to you",
+        25, BLACK, get_pos(h07)
+    )
+    player_id_edit = EditText(
+        f"{PLAYER_ID}", "Your ID (must be unique among players)",
+        25, BLACK, get_pos(h07 * 2)
+    )
+    url_edit = EditText(
+        f"{url}", "Address to connect",
+        25, BLACK, get_pos(h07 * 3)
+    )
 
     # Menu loop
     clock = pygame.time.Clock()
+    err_msg = ""
     game_mode = ""
-    while game_mode == "":
-        # Draw texts, buttons
+    while True:
+        if game_mode != "":
+            if game_mode == "exit":
+                break
+            else:
+                # Check if data is OK before break loop
+                try:
+                    players = int(players_edit.text)
+                    PLAYER_ID = int(player_id_edit.text)
+                    url = url_edit.text
+                    IS_HOST = True
+                    THREADS_NUMBER = 1
+                    ONLINE = None
+                    if game_mode == "create":
+                        ONLINE = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                        ONLINE.bind((host, port))
+                        ONLINE.listen(players)
+                        THREADS_NUMBER = players
+                    elif game_mode == "connect":
+                        ONLINE = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                        ONLINE.connect((url, port))
+                        IS_HOST = False
+                    break
+                except Exception as e:
+                    game_mode = ""
+                    err_msg = f"Settings error: {e}"
+                    print(err_msg)
+
         WINDOW.blit(back_img, (0, 0, WIDTH, HEIGHT))
-        pygame.draw.rect(WINDOW, WHITE, settings_rect, border_radius=20)
-        pygame.draw.rect(WINDOW, BLACK, settings_rect, width=2, border_radius=20)
+        pygame.draw.rect(WINDOW, WHITE, settings_rect, border_radius=10)
+        pygame.draw.rect(WINDOW, BLACK, settings_rect, width=1, border_radius=10)
 
-        setup_text(f"Your local URL: {host}", 0)
-        setup_text(f"Online players: {players}", h05)
-        setup_text(f"Your Player ID: {PLAYER_ID}", h05 * 2)
-        setup_text(f"URL to connect: {url}", h05 * 3)
+        if err_msg != "":
+            Text((padding, 0, w, h),err_msg, RED, 30, True, False).draw()
 
-        for i in [
-            start_single_button,
-            create_online_button,
-            connect_button,
-            exit_button,
-            players_button_minus, players_button_plus,
-            player_id_button_minus, player_id_button_plus,
-            url_button_minus, url_button_plus,
-            title
-        ]:
-            i.draw()
+        title.draw()
 
-        # Listen events, buttons
-        for event in pygame.event.get():
+        events = pygame.event.get()
+
+        host_not_edit.on_tick(events)
+        players_edit.on_tick(events)
+        player_id_edit.on_tick(events)
+        url_edit.on_tick(events)
+
+        for event in events:
             if get_is_back_clicked(event):
                 game_mode = "exit"
                 time.sleep(0.3)
-        if start_single_button.get_is_clicked():
+        if start_single_button.draw_get_is_clicked():
             game_mode = "offline"
             time.sleep(0.3)
-        if create_online_button.get_is_clicked():
+        if create_online_button.draw_get_is_clicked():
             game_mode = "create"
             time.sleep(0.3)
-        if connect_button.get_is_clicked():
+        if connect_button.draw_get_is_clicked():
             game_mode = "connect"
             time.sleep(0.3)
-        if exit_button.get_is_clicked():
+        if exit_button.draw_get_is_clicked():
             game_mode = "exit"
-            time.sleep(0.3)
-        if players_button_minus.get_is_clicked():
-            players = players - 1 if players - 1 >= 0 else 0
-            time.sleep(0.3)
-        if players_button_plus.get_is_clicked():
-            players += 1
-            time.sleep(0.3)
-        if player_id_button_minus.get_is_clicked():
-            PLAYER_ID = PLAYER_ID - 1 if PLAYER_ID - 1 >= 0 else 0
-            time.sleep(0.3)
-        if player_id_button_plus.get_is_clicked():
-            PLAYER_ID += 1
-            time.sleep(0.3)
-        if url_button_minus.get_is_clicked():
-            url = fix_url(False)
-            time.sleep(0.3)
-        if url_button_plus.get_is_clicked():
-            url = fix_url(True)
             time.sleep(0.3)
 
         pygame.display.flip()
         clock.tick(FPS)
 
-    # noinspection PyBroadException
-    try:
-        IS_HOST = True
-        THREADS_NUMBER = 1
-        ONLINE = None
-        if game_mode == "create":
-            host_s, host_port = host.split(":")
-            ONLINE = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            ONLINE.bind((host_s, int(host_port)))
-            ONLINE.listen(players)
-            THREADS_NUMBER = players
-        elif game_mode == "connect":
-            url_s, url_port = url.split(":")
-            ONLINE = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            ONLINE.connect((url_s, int(url_port)))
-            IS_HOST = False
-    except:
-        pass
-    finally:
-        if game_mode == "exit":
-            pygame.quit()
-            sys.exit()
+    if game_mode == "exit":
+        pygame.quit()
+        sys.exit()
 
 
 if __name__ == "__main__":
